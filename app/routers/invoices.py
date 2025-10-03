@@ -3,7 +3,7 @@ Router für Rechnungs-Management.
 Bietet CRUD-Operationen für Rechnungen und PDF-Export.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from sqlmodel import Session, select
@@ -13,7 +13,7 @@ import tempfile
 import os
 from datetime import datetime, timedelta
 from ..database import get_session
-from ..models import Invoice, Project, TimeEntry, MaterialUsage, Employee, TenantSettings, User
+from ..models import Invoice, Project, TimeEntry, MaterialUsage, Employee, TenantSettings
 from ..schemas import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceItem, InvoiceGenerationRequest, InvoiceCalculationResult
 from ..utils.pdf_utils import create_invoice_pdf
 from ..auth import get_current_user, require_buchhalter_or_admin
@@ -27,10 +27,7 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[InvoiceSchema])
-def get_invoices(
-    session: Session = Depends(get_session),
-    current_user: User = Depends(require_buchhalter_or_admin),
-):
+def get_invoices(session: Session = Depends(get_session), current_user = Depends(require_buchhalter_or_admin)):
     """
     Alle Rechnungen abrufen.
     
@@ -62,7 +59,7 @@ def get_invoices(
 def create_invoice(
     invoice_data: dict,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Neue Rechnung erstellen.
@@ -139,10 +136,10 @@ def create_invoice(
 
 @router.put("/{invoice_id}", response_model=InvoiceSchema)
 def update_invoice(
-    invoice_id: int,
-    invoice_update: dict,
+    invoice_id: int, 
+    invoice_update: dict, 
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Rechnung aktualisieren.
@@ -211,7 +208,7 @@ def update_invoice(
 def delete_invoice(
     invoice_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Rechnung löschen.
@@ -235,39 +232,18 @@ def delete_invoice(
     return {"message": "Rechnung erfolgreich gelöscht"}
 
 @router.get("/{invoice_id}", response_model=InvoiceSchema)
-def get_invoice(
-    invoice_id: int,
-    session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
-):
-    """Eine spezifische Rechnung abrufen und Items konsistent aufbereiten."""
-    try:
-        statement = select(Invoice).where(Invoice.id == invoice_id)
-        invoice = session.exec(statement).first()
-
-        if not invoice:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rechnung nicht gefunden")
-
-        if isinstance(invoice.items, str):
-            try:
-                invoice.items = json.loads(invoice.items)
-            except json.JSONDecodeError:
-                invoice.items = []
-        elif invoice.items is None:
-            invoice.items = []
-
-        return invoice
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Fehler beim Abrufen der Rechnung: {exc}")
+def get_invoice(invoice_id: int, session: Session = Depends(get_session), current_user = Depends(require_buchhalter_or_admin)):
+    invoice = session.get(Invoice, invoice_id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    return invoice
 
 
 @router.get("/{invoice_id}/pdf")
 def generate_invoice_pdf(
     invoice_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     PDF-Rechnung generieren und als Datei zurückgeben.
@@ -371,7 +347,7 @@ def generate_invoice_pdf(
 def get_invoices_by_project(
     project_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Alle Rechnungen eines Projekts abrufen.
@@ -399,7 +375,7 @@ def get_invoices_by_project(
 def create_invoice_from_offer(
     offer_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Rechnung aus einem Angebot erstellen.
@@ -514,7 +490,7 @@ def _collect_project_items(session: Session, project_id: int):
 def auto_generate_invoice(
     project_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     project = session.get(Project, project_id)
     if not project:
@@ -551,7 +527,7 @@ def auto_generate_invoice(
 
 # Automatische Rechnungsgenerierung Endpoints (MÜSSEN VOR {invoice_id} stehen!)
 @router.get("/generation-methods")
-def get_generation_methods(current_user: User = Depends(get_current_user)):
+def get_generation_methods(current_user = Depends(get_current_user)):
     """
     Gibt verfügbare Rechnungsgenerierungs-Methoden zurück.
     
@@ -591,9 +567,9 @@ def get_generation_methods(current_user: User = Depends(get_current_user)):
 
 @router.post("/generate", response_model=InvoiceCalculationResult)
 def generate_invoice_calculation(
-    request: InvoiceGenerationRequest,
-    session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    request: InvoiceGenerationRequest, 
+    session: Session = Depends(get_session), 
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Generiert eine Rechnungsberechnung basierend auf verschiedenen Datenquellen.
@@ -619,7 +595,7 @@ def create_invoice_from_calculation(
     client_name: str,
     client_address: str = None,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Erstellt eine tatsächliche Rechnung aus einem Berechnungsergebnis.
@@ -647,7 +623,7 @@ def create_invoice_from_calculation(
 @router.get("/total-revenue")
 def get_total_revenue(
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Berechnet den Gesamtumsatz aus allen bezahlten Rechnungen.
@@ -675,4 +651,41 @@ def get_total_revenue(
             "invoice_count": 0,
             "currency": "EUR"
         }
+
+@router.get("/{invoice_id}", response_model=InvoiceSchema)
+def get_invoice(
+    invoice_id: int,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
+):
+    """
+    Eine spezifische Rechnung abrufen.
+    
+    Args:
+        invoice_id: ID der Rechnung
+        
+    Returns:
+        InvoiceSchema: Rechnungsdaten
+    """
+    try:
+        statement = select(Invoice).where(Invoice.id == invoice_id)
+        invoice = session.exec(statement).first()
+        
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+        
+        # Konvertiere items von JSON-String zu Liste falls nötig
+        if isinstance(invoice.items, str):
+            try:
+                invoice.items = json.loads(invoice.items)
+            except:
+                invoice.items = []
+        elif invoice.items is None:
+            invoice.items = []
+        
+        return invoice
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fehler beim Abrufen der Rechnung: {str(e)}")
 

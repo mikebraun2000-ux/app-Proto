@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from typing import List
 from ..database import get_session
-from ..models import Employee, User
+from ..models import Employee
 from ..schemas import EmployeeCreate, EmployeeUpdate, Employee as EmployeeSchema
 from ..auth import get_current_user, require_admin
 
@@ -17,20 +17,13 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
-
 @router.get("/", response_model=List[EmployeeSchema])
-def get_employees(
-    session: Session = Depends(get_session),
-    current_user: User = Depends(require_admin),
-):
+def get_employees(session: Session = Depends(get_session), current_user = Depends(require_admin)):
     """
     Alle Mitarbeiter des Tenants abrufen.
     """
     try:
-        statement = select(Employee).where(
-            Employee.tenant_id == current_user.tenant_id,
-            Employee.is_active == True,
-        )
+        statement = select(Employee).where(Employee.tenant_id == current_user.tenant_id, Employee.is_active == True)
         employees = session.exec(statement).all()
 
         result = []
@@ -57,7 +50,7 @@ def get_employees(
 def create_employee(
     employee: EmployeeCreate,
     session: Session = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user = Depends(require_admin),
 ):
     """
     Neuen Mitarbeiter erstellen.
@@ -79,7 +72,7 @@ def create_employee(
 def get_employee(
     employee_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user = Depends(require_admin),
 ):
     """
     Einzelnen Mitarbeiter anhand der ID abrufen.
@@ -104,7 +97,7 @@ def update_employee(
     employee_id: int,
     employee_update: EmployeeUpdate,
     session: Session = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user = Depends(require_admin),
 ):
     """
     Mitarbeiter aktualisieren.
@@ -138,7 +131,7 @@ def update_employee(
 def delete_employee(
     employee_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user = Depends(require_admin),
 ):
     """
     Mitarbeiter deaktivieren (soft delete).

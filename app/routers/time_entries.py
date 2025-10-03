@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from typing import List
 from ..database import get_session
-from ..models import TimeEntry, Employee, Project, User
+from ..models import TimeEntry, Employee, Project
 from ..schemas import TimeEntryCreate, TimeEntryUpdate, TimeEntry as TimeEntrySchema
 from ..auth import get_current_user, require_employee_or_admin
 
@@ -20,7 +20,7 @@ router = APIRouter(
 @router.get("/", response_model=List[TimeEntrySchema])
 def get_time_entries(
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
     """
     Stundeneinträge abrufen - rollenbasiert gefiltert.
@@ -76,7 +76,7 @@ def get_time_entries(
 def create_time_entry(
     time_entry: TimeEntryCreate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_employee_or_admin),
+    current_user = Depends(require_employee_or_admin),
 ):
     """
     Neuen Stundeneintrag erstellen.
@@ -159,7 +159,7 @@ def create_time_entry(
 def get_time_entry(
     time_entry_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
     """
     Einzelnen Stundeneintrag anhand der ID abrufen.
@@ -209,7 +209,7 @@ def update_time_entry(
     time_entry_id: int,
     time_entry_update: TimeEntryUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
     """
     Stundeneintrag aktualisieren.
@@ -293,7 +293,7 @@ def update_time_entry(
 def delete_time_entry(
     time_entry_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_employee_or_admin),
+    current_user = Depends(require_employee_or_admin),
 ):
     """
     Stundeneintrag löschen.
@@ -312,9 +312,6 @@ def delete_time_entry(
     if not time_entry:
         raise HTTPException(status_code=404, detail="Stundeneintrag nicht gefunden")
     
-    if current_user.role == "mitarbeiter" and time_entry.employee_id != 1:
-        raise HTTPException(status_code=403, detail="Keine Berechtigung, diesen Stundeneintrag zu löschen")
-
     session.delete(time_entry)
     session.commit()
     return {"message": "Stundeneintrag erfolgreich gelöscht"}
@@ -323,7 +320,7 @@ def delete_time_entry(
 def get_time_entries_by_project(
     project_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_employee_or_admin),
+    _: object = Depends(require_employee_or_admin),
 ):
     """
     Alle Stundeneinträge eines Projekts abrufen.
@@ -351,7 +348,7 @@ def get_time_entries_by_project(
 def get_time_entries_by_employee(
     employee_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_employee_or_admin),
+    current_user = Depends(require_employee_or_admin),
 ):
     """
     Alle Stundeneinträge eines Mitarbeiters abrufen.
@@ -371,9 +368,6 @@ def get_time_entries_by_employee(
     if not employee:
         raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden")
     
-    if current_user.role == "mitarbeiter" and employee_id != 1:
-        raise HTTPException(status_code=403, detail="Keine Berechtigung")
-
     statement = select(TimeEntry).where(TimeEntry.employee_id == employee_id)
     time_entries = session.exec(statement).all()
     return time_entries

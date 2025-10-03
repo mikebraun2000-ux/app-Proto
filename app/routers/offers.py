@@ -11,7 +11,7 @@ import json
 import tempfile
 import os
 from ..database import get_session
-from ..models import Offer, Project, Invoice, User
+from ..models import Offer, Project, Invoice
 from ..schemas import OfferCreate, OfferUpdate, Offer as OfferSchema, OfferItem, InvoiceCreate, OfferGenerationRequest
 from ..utils.pdf_utils import create_offer_pdf
 from ..auth import get_current_user, require_buchhalter_or_admin
@@ -28,7 +28,7 @@ router = APIRouter(
 def get_offers(
     auto_generated: Optional[bool] = None,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Alle Angebote abrufen, optional gefiltert nach auto_generated.
@@ -66,7 +66,7 @@ def get_offers(
 def create_offer(
     offer: OfferCreate,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Neues Angebot erstellen.
@@ -135,7 +135,7 @@ def create_offer(
 def create_auto_offer(
     request: OfferGenerationRequest,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin)
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Erstellt ein automatisches Angebot auf Basis der Projektdaten.
@@ -234,7 +234,7 @@ def create_auto_offer(
 def get_offer(
     offer_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Einzelnes Angebot anhand der ID abrufen.
@@ -259,7 +259,7 @@ def update_offer(
     offer_id: int,
     offer_update: OfferUpdate,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Angebot aktualisieren.
@@ -316,7 +316,7 @@ def update_offer(
 def delete_offer(
     offer_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Angebot löschen.
@@ -343,7 +343,7 @@ def delete_offer(
 def generate_offer_pdf(
     offer_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     PDF-Angebot generieren und als Datei zurückgeben.
@@ -400,7 +400,7 @@ def generate_offer_pdf(
 def get_offers_by_project(
     project_id: int,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Alle Angebote eines Projekts abrufen.

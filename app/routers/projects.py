@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from typing import List
 from datetime import datetime
 from ..database import get_session
-from ..models import Project, User
+from ..models import Project
 from ..schemas import ProjectCreate, ProjectUpdate, Project as ProjectSchema
 from ..auth import get_current_user, require_buchhalter_or_admin
 
@@ -19,10 +19,7 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[ProjectSchema])
-def get_projects(
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
+def get_projects(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
     """
     Alle Projekte abrufen.
     
@@ -61,7 +58,7 @@ def get_projects(
 def create_project(
     project: ProjectCreate,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Neues Projekt erstellen.
@@ -80,11 +77,7 @@ def create_project(
     return db_project
 
 @router.get("/{project_id}", response_model=ProjectSchema)
-def get_project(
-    project_id: int,
-    session: Session = Depends(get_session),
-    _: User = Depends(get_current_user),
-):
+def get_project(project_id: int, session: Session = Depends(get_session)):
     """
     Einzelnes Projekt anhand der ID abrufen.
     
@@ -108,7 +101,7 @@ def update_project(
     project_id: int,
     project_update: ProjectUpdate,
     session: Session = Depends(get_session),
-    _: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Projekt aktualisieren.
@@ -140,9 +133,9 @@ def update_project(
 
 @router.delete("/{project_id}")
 def delete_project(
-    project_id: int,
+    project_id: int, 
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_buchhalter_or_admin),
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Projekt löschen mit allen verknüpften Daten (nur für Buchhalter und Admin).

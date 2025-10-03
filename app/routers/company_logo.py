@@ -159,7 +159,6 @@ async def delete_logo(
 @router.get("/view")
 async def view_logo(
     session: Session = Depends(get_session),
-    _: User = Depends(get_current_user),
     logo_id: Optional[int] = None
 ):
     query = select(CompanyLogo).where(CompanyLogo.is_active == True)  # noqa: E712

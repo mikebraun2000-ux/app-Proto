@@ -1,8 +1,11 @@
-"""Authentifizierung und Autorisierung für die Bau-Dokumentations-App."""
+"""
+Authentifizierung und Autorisierung für die Bau-Dokumentations-App.
+Implementiert JWT-basierte Authentifizierung mit rollenbasierten Berechtigungen.
+"""
 
-import os
 from datetime import datetime, timedelta
 from typing import Optional
+import os
 
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -32,6 +35,7 @@ def _resolve_secret_key() -> str:
     return secret_key
 
 
+# Konfiguration
 SECRET_KEY = _resolve_secret_key()
 
 ALGORITHM = "HS256"
