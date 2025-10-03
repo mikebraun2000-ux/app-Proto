@@ -1,16 +1,17 @@
-"""
-Router für Projekt-Management.
-Bietet CRUD-Operationen für Bauprojekte.
-"""
+"""FastAPI-Router für mandantenfähiges Projekt-Management."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from __future__ import annotations
+
 from typing import List
-from datetime import datetime
-from ..database import get_session
-from ..models import Project
-from ..schemas import ProjectCreate, ProjectUpdate, Project as ProjectSchema
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import Session, delete, select
+
 from ..auth import get_current_user, require_buchhalter_or_admin
+from ..database import get_session
+from ..models import Invoice, Offer, Project, ProjectImage, Report, TimeEntry, User
+from ..schemas import Project as ProjectSchema
+from ..schemas import ProjectCreate, ProjectUpdate
 
 router = APIRouter(
     prefix="/projects",
@@ -18,239 +19,154 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
-@router.get("/", response_model=List[ProjectSchema])
-def get_projects(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
-    """
-    Alle Projekte abrufen.
-    
-    Returns:
-        List[ProjectSchema]: Liste aller Projekte
-    """
-    statement = select(Project)
-    projects = session.exec(statement).all()
-    
-    # Manuelle Serialisierung für name mapping
-    result = []
-    for project in projects:
-        project_dict = {
-            "id": project.id,
-            "name": project.name,
-            "description": project.description,
-            "address": project.address,
-            "client_name": project.client_name,
-            "client_phone": project.client_phone,
-            "client_email": project.client_email,
-            "project_type": project.project_type,
-            "total_area": project.total_area,
-            "estimated_hours": project.estimated_hours,
-            "hourly_rate": project.hourly_rate,
-            "start_date": project.start_date,
-            "end_date": project.end_date,
-            "status": project.status,
-            "created_at": project.created_at,
-            "updated_at": project.updated_at
-        }
-        result.append(project_dict)
-    
-    return result
 
-@router.post("/", response_model=ProjectSchema)
+def _get_project_for_tenant(
+    session: Session, tenant_id: int, project_id: int
+) -> Project:
+    """Hilfsfunktion, die ein Projekt für den aktuellen Mandanten lädt."""
+    statement = select(Project).where(
+        Project.id == project_id,
+        Project.tenant_id == tenant_id,
+    )
+    project = session.exec(statement).first()
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Projekt nicht gefunden",
+        )
+    return project
+
+
+@router.get("/", response_model=List[ProjectSchema])
+def list_projects(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> List[Project]:
+    """Gibt alle Projekte des aktuellen Tenants zurück."""
+    statement = select(Project).where(Project.tenant_id == current_user.tenant_id)
+    return session.exec(statement).all()
+
+
+@router.post("/", response_model=ProjectSchema, status_code=status.HTTP_201_CREATED)
 def create_project(
     project: ProjectCreate,
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin),
-):
-    """
-    Neues Projekt erstellen.
-    
-    Args:
-        project: Projekt-Daten
-        session: Datenbank-Session
-        
-    Returns:
-        ProjectSchema: Erstelltes Projekt
-    """
-    db_project = Project.model_validate(project)
+    current_user: User = Depends(require_buchhalter_or_admin),
+) -> Project:
+    """Erstellt ein neues Projekt und verknüpft es mit dem aktuellen Tenant."""
+    db_project = Project.model_validate(project, update={"tenant_id": current_user.tenant_id})
     session.add(db_project)
     session.commit()
     session.refresh(db_project)
     return db_project
 
+
 @router.get("/{project_id}", response_model=ProjectSchema)
-def get_project(project_id: int, session: Session = Depends(get_session)):
-    """
-    Einzelnes Projekt anhand der ID abrufen.
-    
-    Args:
-        project_id: Projekt-ID
-        session: Datenbank-Session
-        
-    Returns:
-        ProjectSchema: Projekt-Daten
-        
-    Raises:
-        HTTPException: Wenn Projekt nicht gefunden wird
-    """
-    project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
-    return project
+def get_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> Project:
+    """Liefert die Daten eines Projekts aus dem aktuellen Tenant."""
+    return _get_project_for_tenant(session, current_user.tenant_id, project_id)
+
 
 @router.put("/{project_id}", response_model=ProjectSchema)
 def update_project(
     project_id: int,
     project_update: ProjectUpdate,
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin),
-):
-    """
-    Projekt aktualisieren.
-    
-    Args:
-        project_id: Projekt-ID
-        project_update: Aktualisierte Projekt-Daten
-        session: Datenbank-Session
-        
-    Returns:
-        ProjectSchema: Aktualisiertes Projekt
-        
-    Raises:
-        HTTPException: Wenn Projekt nicht gefunden wird
-    """
-    project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
-    
-    # Nur gesetzte Felder aktualisieren
-    project_data = project_update.model_dump(exclude_unset=True)
-    for field, value in project_data.items():
-        setattr(project, field, value)
-    
+    current_user: User = Depends(require_buchhalter_or_admin),
+) -> Project:
+    """Aktualisiert ein Projekt des aktuellen Mandanten."""
+    project = _get_project_for_tenant(session, current_user.tenant_id, project_id)
+    update_data = project_update.model_dump(exclude_unset=True)
+    for field_name, value in update_data.items():
+        setattr(project, field_name, value)
+
     session.add(project)
     session.commit()
     session.refresh(project)
     return project
 
-@router.delete("/{project_id}")
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
-    project_id: int, 
+    project_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin)
-):
-    """
-    Projekt löschen mit allen verknüpften Daten (nur für Buchhalter und Admin).
-    
-    Args:
-        project_id: Projekt-ID
-        session: Datenbank-Session
-        current_user: Aktueller Benutzer (Buchhalter/Admin)
-        
-    Returns:
-        dict: Erfolgsmeldung mit Details der gelöschten Daten
-        
-    Raises:
-        HTTPException: Wenn Projekt nicht gefunden wird oder Löschung fehlschlägt
-    """
-    try:
-        # Prüfe ob Projekt existiert
-        project = session.get(Project, project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
-        
-        project_name = project.name
-        
-        # Zähle verknüpfte Daten vor dem Löschen
-        from ..models import Report, TimeEntry, Offer, Invoice, ProjectImage
-        from sqlmodel import select
-        import os
-        
-        # Zähle verknüpfte Berichte
-        reports = session.exec(select(Report).where(Report.project_id == project_id)).all()
-        reports_count = len(reports)
-        
-        # Zähle verknüpfte Stundeneinträge
-        time_entries = session.exec(select(TimeEntry).where(TimeEntry.project_id == project_id)).all()
-        time_entries_count = len(time_entries)
-        
-        # Zähle verknüpfte Angebote
-        offers = session.exec(select(Offer).where(Offer.project_id == project_id)).all()
-        offers_count = len(offers)
-        
-        # Zähle verknüpfte Rechnungen
-        invoices = session.exec(select(Invoice).where(Invoice.project_id == project_id)).all()
-        invoices_count = len(invoices)
-        
-        # Zähle verknüpfte Projektbilder
-        project_images = session.exec(select(ProjectImage).where(ProjectImage.project_id == project_id)).all()
-        project_images_count = len(project_images)
-        
-        # Lösche alle verknüpften Daten
-        
-        # 1. Lösche Berichte und deren Anhänge
-        for report in reports:
-            # Lösche Berichtsbilder aus dem Dateisystem
+    current_user: User = Depends(require_buchhalter_or_admin),
+) -> None:
+    """Löscht ein Projekt inklusive aller verknüpften Datensätze des Tenants."""
+    tenant_id = current_user.tenant_id
+    project = _get_project_for_tenant(session, tenant_id, project_id)
+
+    report_ids = [
+        report.id
+        for report in session.exec(
+            select(Report).where(Report.project_id == project_id, Report.tenant_id == tenant_id)
+        ).all()
+    ]
+
+    image_ids = [
+        image.id
+        for image in session.exec(
+            select(ProjectImage).where(
+                ProjectImage.project_id == project_id,
+                ProjectImage.tenant_id == tenant_id,
+            )
+        ).all()
+    ]
+
+    time_entry_ids = [
+        entry.id
+        for entry in session.exec(
+            select(TimeEntry).where(
+                TimeEntry.project_id == project_id,
+                TimeEntry.tenant_id == tenant_id,
+            )
+        ).all()
+    ]
+
+    offer_ids = [
+        offer.id
+        for offer in session.exec(
+            select(Offer).where(Offer.project_id == project_id, Offer.tenant_id == tenant_id)
+        ).all()
+    ]
+
+    invoice_ids = [
+        invoice.id
+        for invoice in session.exec(
+            select(Invoice).where(
+                Invoice.project_id == project_id,
+                Invoice.tenant_id == tenant_id,
+            )
+        ).all()
+    ]
+
+    # Dateien der Projektbilder entfernen
+    for image in session.exec(
+        select(ProjectImage).where(ProjectImage.id.in_(image_ids))
+    ):
+        if image.file_path:
             try:
                 import os
-                from pathlib import Path
-                upload_dir = Path("uploads/images")
-                if upload_dir.exists():
-                    for file in upload_dir.glob(f"*"):
-                        if file.is_file():
-                            # Prüfe ob Datei zu diesem Bericht gehört
-                            try:
-                                with open(file, 'rb') as f:
-                                    # Einfache Prüfung: wenn Datei existiert, lösche sie
-                                    pass
-                            except:
-                                pass
-            except Exception as e:
-                print(f"Fehler beim Löschen der Berichtsbilder: {e}")
-            
-            session.delete(report)
-        
-        # 2. Lösche Stundeneinträge
-        for time_entry in time_entries:
-            session.delete(time_entry)
-        
-        # 3. Lösche Angebote
-        for offer in offers:
-            session.delete(offer)
-        
-        # 4. Lösche Rechnungen
-        for invoice in invoices:
-            session.delete(invoice)
-        
-        # 5. Lösche Projektbilder und deren Dateien
-        for image in project_images:
-            # Lösche Datei vom Server
-            if hasattr(image, 'file_path') and image.file_path and os.path.exists(image.file_path):
-                try:
-                    os.remove(image.file_path)
-                except Exception as e:
-                    print(f"Fehler beim Löschen der Bilddatei {image.file_path}: {e}")
-            session.delete(image)
-        
-        # 6. Lösche das Projekt selbst
-        session.delete(project)
-        session.commit()
-        
-        return {
-            "message": "Projekt und alle verknüpften Daten erfolgreich gelöscht",
-            "deleted_project": project_name,
-            "deleted_by": current_user.full_name,
-            "deleted_at": datetime.utcnow().isoformat(),
-            "deleted_data": {
-                "berichte": reports_count,
-                "stundeneintraege": time_entries_count,
-                "angebote": offers_count,
-                "rechnungen": invoices_count,
-                "projektbilder": project_images_count
-            }
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=f"Fehler beim Löschen des Projekts: {str(e)}")
 
+                if os.path.exists(image.file_path):
+                    os.remove(image.file_path)
+            except OSError:
+                pass
+
+    # Datensätze löschen – Reihenfolge beachten wegen FK-Constraints
+    for model, ids in (
+        (ProjectImage, image_ids),
+        (Report, report_ids),
+        (TimeEntry, time_entry_ids),
+        (Offer, offer_ids),
+        (Invoice, invoice_ids),
+    ):
+        if ids:
+            session.exec(delete(model).where(model.id.in_(ids)))
+
+    session.delete(project)
+    session.commit()
