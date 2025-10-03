@@ -18,13 +18,17 @@ from ..auth import get_current_user, require_buchhalter_or_admin
 from datetime import datetime, timedelta
 from typing import Optional
 
-router = APIRouter(prefix="/offers", tags=["offers"])
+router = APIRouter(
+    prefix="/offers",
+    tags=["offers"],
+    dependencies=[Depends(get_current_user)],
+)
 
 @router.get("/", response_model=List[OfferSchema])
 def get_offers(
     auto_generated: Optional[bool] = None,
-    session: Session = Depends(get_session), 
-    current_user = Depends(get_current_user)
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Alle Angebote abrufen, optional gefiltert nach auto_generated.
@@ -59,7 +63,11 @@ def get_offers(
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Angebote: {str(e)}")
 
 @router.post("/", response_model=OfferSchema)
-def create_offer(offer: OfferCreate, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def create_offer(
+    offer: OfferCreate,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
+):
     """
     Neues Angebot erstellen.
     
@@ -223,7 +231,11 @@ def create_auto_offer(
         raise HTTPException(status_code=500, detail=f"Fehler beim automatischen Angebot: {str(e)}")
 
 @router.get("/{offer_id}", response_model=OfferSchema)
-def get_offer(offer_id: int, session: Session = Depends(get_session)):
+def get_offer(
+    offer_id: int,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
+):
     """
     Einzelnes Angebot anhand der ID abrufen.
     
@@ -244,10 +256,10 @@ def get_offer(offer_id: int, session: Session = Depends(get_session)):
 
 @router.put("/{offer_id}", response_model=OfferSchema)
 def update_offer(
-    offer_id: int, 
-    offer_update: OfferUpdate, 
+    offer_id: int,
+    offer_update: OfferUpdate,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_buchhalter_or_admin)
 ):
     """
     Angebot aktualisieren.
@@ -301,7 +313,11 @@ def update_offer(
     return offer
 
 @router.delete("/{offer_id}")
-def delete_offer(offer_id: int, session: Session = Depends(get_session)):
+def delete_offer(
+    offer_id: int,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
+):
     """
     Angebot löschen.
     
@@ -324,7 +340,11 @@ def delete_offer(offer_id: int, session: Session = Depends(get_session)):
     return {"message": "Angebot erfolgreich gelöscht"}
 
 @router.post("/{offer_id}/pdf")
-def generate_offer_pdf(offer_id: int, session: Session = Depends(get_session)):
+def generate_offer_pdf(
+    offer_id: int,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
+):
     """
     PDF-Angebot generieren und als Datei zurückgeben.
     
@@ -377,7 +397,11 @@ def generate_offer_pdf(offer_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=500, detail=f"Fehler beim Generieren des PDFs: {str(e)}")
 
 @router.get("/project/{project_id}", response_model=List[OfferSchema])
-def get_offers_by_project(project_id: int, session: Session = Depends(get_session)):
+def get_offers_by_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
+):
     """
     Alle Angebote eines Projekts abrufen.
     

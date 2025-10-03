@@ -39,6 +39,20 @@ uvicorn app.main:app --reload
 
 Die API ist dann unter `http://localhost:8000` erreichbar.
 
+### 3a. Benötigte Umgebungsvariablen
+
+| Variable      | Beschreibung                                                                 |
+| ------------- | ----------------------------------------------------------------------------- |
+| `SECRET_KEY`  | Pflichtwert für die JWT-Signierung. Ohne gesetzten Schlüssel startet die App nicht. |
+
+Füge den Schlüssel z. B. deiner `.env` hinzu:
+
+```bash
+echo "SECRET_KEY=$(openssl rand -hex 32)" >> .env
+```
+
+> **Hinweis:** Die automatisierten Tests setzen während des Laufs automatisch einen deterministischen Schlüssel, damit Importe funktionieren.
+
 ### 4. API-Dokumentation
 
 - **Swagger UI**: `http://localhost:8000/docs`

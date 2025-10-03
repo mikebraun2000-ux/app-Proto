@@ -17,7 +17,11 @@ from ..schemas import CompanyLogo as CompanyLogoSchema
 UPLOAD_DIR = os.path.join("uploads", "logos")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-router = APIRouter(prefix="/company-logo", tags=["company-logo"])
+router = APIRouter(
+    prefix="/company-logo",
+    tags=["company-logo"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _tenant_id(user: User) -> int:

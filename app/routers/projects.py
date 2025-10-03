@@ -12,7 +12,11 @@ from ..models import Project
 from ..schemas import ProjectCreate, ProjectUpdate, Project as ProjectSchema
 from ..auth import get_current_user, require_buchhalter_or_admin
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(
+    prefix="/projects",
+    tags=["projects"],
+    dependencies=[Depends(get_current_user)],
+)
 
 @router.get("/", response_model=List[ProjectSchema])
 def get_projects(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
@@ -51,7 +55,11 @@ def get_projects(session: Session = Depends(get_session), current_user = Depends
     return result
 
 @router.post("/", response_model=ProjectSchema)
-def create_project(project: ProjectCreate, session: Session = Depends(get_session)):
+def create_project(
+    project: ProjectCreate,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
+):
     """
     Neues Projekt erstellen.
     
@@ -90,9 +98,10 @@ def get_project(project_id: int, session: Session = Depends(get_session)):
 
 @router.put("/{project_id}", response_model=ProjectSchema)
 def update_project(
-    project_id: int, 
-    project_update: ProjectUpdate, 
-    session: Session = Depends(get_session)
+    project_id: int,
+    project_update: ProjectUpdate,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_buchhalter_or_admin),
 ):
     """
     Projekt aktualisieren.

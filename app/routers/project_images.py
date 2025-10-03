@@ -9,11 +9,16 @@ from typing import List
 import os
 import uuid
 from PIL import Image
+from ..auth import require_employee_or_admin
 from ..database import get_session
 from ..models import ProjectImage, Project
 from ..schemas import ProjectImageCreate, ProjectImage as ProjectImageSchema
 
-router = APIRouter(prefix="/project-images", tags=["project-images"])
+router = APIRouter(
+    prefix="/project-images",
+    tags=["project-images"],
+    dependencies=[Depends(require_employee_or_admin)],
+)
 
 # Upload-Verzeichnis für Projektbilder
 UPLOAD_DIR = "uploads/project_images"

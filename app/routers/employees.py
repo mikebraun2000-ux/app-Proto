@@ -11,10 +11,14 @@ from ..models import Employee
 from ..schemas import EmployeeCreate, EmployeeUpdate, Employee as EmployeeSchema
 from ..auth import get_current_user, require_admin
 
-router = APIRouter(prefix="/employees", tags=["employees"])
+router = APIRouter(
+    prefix="/employees",
+    tags=["employees"],
+    dependencies=[Depends(get_current_user)],
+)
 
 @router.get("/", response_model=List[EmployeeSchema])
-def get_employees(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_employees(session: Session = Depends(get_session), current_user = Depends(require_admin)):
     """
     Alle Mitarbeiter des Tenants abrufen.
     """
@@ -43,7 +47,11 @@ def get_employees(session: Session = Depends(get_session), current_user = Depend
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Mitarbeiter: {str(e)}")
 
 @router.post("/", response_model=EmployeeSchema)
-def create_employee(employee: EmployeeCreate, session: Session = Depends(get_session)):
+def create_employee(
+    employee: EmployeeCreate,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_admin),
+):
     """
     Neuen Mitarbeiter erstellen.
     
@@ -61,7 +69,11 @@ def create_employee(employee: EmployeeCreate, session: Session = Depends(get_ses
     return db_employee
 
 @router.get("/{employee_id}", response_model=EmployeeSchema)
-def get_employee(employee_id: int, session: Session = Depends(get_session)):
+def get_employee(
+    employee_id: int,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_admin),
+):
     """
     Einzelnen Mitarbeiter anhand der ID abrufen.
     
@@ -82,9 +94,10 @@ def get_employee(employee_id: int, session: Session = Depends(get_session)):
 
 @router.put("/{employee_id}", response_model=EmployeeSchema)
 def update_employee(
-    employee_id: int, 
-    employee_update: EmployeeUpdate, 
-    session: Session = Depends(get_session)
+    employee_id: int,
+    employee_update: EmployeeUpdate,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_admin),
 ):
     """
     Mitarbeiter aktualisieren.
@@ -115,7 +128,11 @@ def update_employee(
     return employee
 
 @router.delete("/{employee_id}")
-def delete_employee(employee_id: int, session: Session = Depends(get_session)):
+def delete_employee(
+    employee_id: int,
+    session: Session = Depends(get_session),
+    current_user = Depends(require_admin),
+):
     """
     Mitarbeiter deaktivieren (soft delete).
     
