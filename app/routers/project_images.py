@@ -10,17 +10,25 @@ import os
 import uuid
 from PIL import Image
 from ..database import get_session
-from ..models import ProjectImage, Project
+from ..models import ProjectImage, Project, User
 from ..schemas import ProjectImageCreate, ProjectImage as ProjectImageSchema
+from ..auth import get_current_user, require_employee_or_admin, require_admin
 
-router = APIRouter(prefix="/project-images", tags=["project-images"])
+router = APIRouter(
+    prefix="/project-images",
+    tags=["project-images"],
+    dependencies=[Depends(get_current_user)],
+)
 
 # Upload-Verzeichnis für Projektbilder
 UPLOAD_DIR = "uploads/project_images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/", response_model=List[ProjectImageSchema])
-def get_project_images(session: Session = Depends(get_session)):
+def get_project_images(
+    session: Session = Depends(get_session),
+    _: User = Depends(get_current_user),
+):
     """
     Alle Projektbilder abrufen.
     
@@ -37,7 +45,8 @@ def create_project_image(
     description: str = None,
     image_type: str = "progress",
     file: UploadFile = File(...),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Neues Projektbild hochladen.
@@ -111,7 +120,11 @@ def create_project_image(
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Datei: {str(e)}")
 
 @router.get("/{image_id}", response_model=ProjectImageSchema)
-def get_project_image(image_id: int, session: Session = Depends(get_session)):
+def get_project_image(
+    image_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(get_current_user),
+):
     """
     Einzelnes Projektbild anhand der ID abrufen.
     
@@ -131,7 +144,11 @@ def get_project_image(image_id: int, session: Session = Depends(get_session)):
     return image
 
 @router.delete("/{image_id}")
-def delete_project_image(image_id: int, session: Session = Depends(get_session)):
+def delete_project_image(
+    image_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(require_admin),
+):
     """
     Projektbild löschen.
     
@@ -161,7 +178,11 @@ def delete_project_image(image_id: int, session: Session = Depends(get_session))
     return {"message": "Bild erfolgreich gelöscht"}
 
 @router.get("/project/{project_id}", response_model=List[ProjectImageSchema])
-def get_images_by_project(project_id: int, session: Session = Depends(get_session)):
+def get_images_by_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(get_current_user),
+):
     """
     Alle Bilder eines Projekts abrufen.
     

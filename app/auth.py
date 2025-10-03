@@ -1,11 +1,8 @@
-"""
-Authentifizierung und Autorisierung für die Bau-Dokumentations-App.
-Implementiert JWT-basierte Authentifizierung mit rollenbasierten Berechtigungen.
-"""
+"""Authentifizierung und Autorisierung für die Bau-Dokumentations-App."""
 
+import os
 from datetime import datetime, timedelta
 from typing import Optional
-import os
 
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -25,10 +22,17 @@ except ImportError:  # pragma: no cover
 if load_dotenv:
     load_dotenv()
 
-# Konfiguration
-SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY ist nicht gesetzt. Bitte .env konfigurieren.")
+
+def _resolve_secret_key() -> str:
+    """Reads the SECRET_KEY from the environment and fails fast when missing."""
+
+    secret_key = os.getenv("SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError("SECRET_KEY ist nicht gesetzt. Bitte .env konfigurieren.")
+    return secret_key
+
+
+SECRET_KEY = _resolve_secret_key()
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -65,8 +69,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         if expected_hash == hashed_password:
             return True
 
-    # Absoluter Fallback (nur für ganz alte Datensätze)
-    return hashed_password == plain_password == "admin123"
+    # Keine weiteren Fallbacks zulassen – Legacy-Passwörter sind deaktiviert.
+    return False
 
 
 def get_password_hash(password: str) -> str:

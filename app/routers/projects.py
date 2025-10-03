@@ -8,14 +8,21 @@ from sqlmodel import Session, select
 from typing import List
 from datetime import datetime
 from ..database import get_session
-from ..models import Project
+from ..models import Project, User
 from ..schemas import ProjectCreate, ProjectUpdate, Project as ProjectSchema
 from ..auth import get_current_user, require_buchhalter_or_admin
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(
+    prefix="/projects",
+    tags=["projects"],
+    dependencies=[Depends(get_current_user)],
+)
 
 @router.get("/", response_model=List[ProjectSchema])
-def get_projects(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_projects(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     """
     Alle Projekte abrufen.
     
@@ -51,7 +58,11 @@ def get_projects(session: Session = Depends(get_session), current_user = Depends
     return result
 
 @router.post("/", response_model=ProjectSchema)
-def create_project(project: ProjectCreate, session: Session = Depends(get_session)):
+def create_project(
+    project: ProjectCreate,
+    session: Session = Depends(get_session),
+    _: User = Depends(require_buchhalter_or_admin),
+):
     """
     Neues Projekt erstellen.
     
@@ -69,7 +80,11 @@ def create_project(project: ProjectCreate, session: Session = Depends(get_sessio
     return db_project
 
 @router.get("/{project_id}", response_model=ProjectSchema)
-def get_project(project_id: int, session: Session = Depends(get_session)):
+def get_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(get_current_user),
+):
     """
     Einzelnes Projekt anhand der ID abrufen.
     
@@ -90,9 +105,10 @@ def get_project(project_id: int, session: Session = Depends(get_session)):
 
 @router.put("/{project_id}", response_model=ProjectSchema)
 def update_project(
-    project_id: int, 
-    project_update: ProjectUpdate, 
-    session: Session = Depends(get_session)
+    project_id: int,
+    project_update: ProjectUpdate,
+    session: Session = Depends(get_session),
+    _: User = Depends(require_buchhalter_or_admin),
 ):
     """
     Projekt aktualisieren.
@@ -124,9 +140,9 @@ def update_project(
 
 @router.delete("/{project_id}")
 def delete_project(
-    project_id: int, 
+    project_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin)
+    current_user: User = Depends(require_buchhalter_or_admin),
 ):
     """
     Projekt löschen mit allen verknüpften Daten (nur für Buchhalter und Admin).

@@ -7,14 +7,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from typing import List
 from ..database import get_session
-from ..models import TimeEntry, Employee, Project
+from ..models import TimeEntry, Employee, Project, User
 from ..schemas import TimeEntryCreate, TimeEntryUpdate, TimeEntry as TimeEntrySchema
 from ..auth import get_current_user, require_employee_or_admin
 
-router = APIRouter(prefix="/time-entries", tags=["time-entries"])
+router = APIRouter(
+    prefix="/time-entries",
+    tags=["time-entries"],
+    dependencies=[Depends(get_current_user)],
+)
 
 @router.get("/", response_model=List[TimeEntrySchema])
-def get_time_entries(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_time_entries(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     """
     Stundeneinträge abrufen - rollenbasiert gefiltert.
     
@@ -66,7 +73,11 @@ def get_time_entries(session: Session = Depends(get_session), current_user = Dep
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Stundeneinträge: {str(e)}")
 
 @router.post("/", response_model=TimeEntrySchema)
-def create_time_entry(time_entry: TimeEntryCreate, session: Session = Depends(get_session), current_user = Depends(require_employee_or_admin)):
+def create_time_entry(
+    time_entry: TimeEntryCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_employee_or_admin),
+):
     """
     Neuen Stundeneintrag erstellen.
     
@@ -145,7 +156,11 @@ def create_time_entry(time_entry: TimeEntryCreate, session: Session = Depends(ge
     }
 
 @router.get("/{time_entry_id}", response_model=TimeEntrySchema)
-def get_time_entry(time_entry_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_time_entry(
+    time_entry_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     """
     Einzelnen Stundeneintrag anhand der ID abrufen.
     
@@ -191,10 +206,10 @@ def get_time_entry(time_entry_id: int, session: Session = Depends(get_session), 
 
 @router.put("/{time_entry_id}", response_model=TimeEntrySchema)
 def update_time_entry(
-    time_entry_id: int, 
-    time_entry_update: TimeEntryUpdate, 
+    time_entry_id: int,
+    time_entry_update: TimeEntryUpdate,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Stundeneintrag aktualisieren.
@@ -275,7 +290,11 @@ def update_time_entry(
     }
 
 @router.delete("/{time_entry_id}")
-def delete_time_entry(time_entry_id: int, session: Session = Depends(get_session)):
+def delete_time_entry(
+    time_entry_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_employee_or_admin),
+):
     """
     Stundeneintrag löschen.
     
@@ -293,12 +312,19 @@ def delete_time_entry(time_entry_id: int, session: Session = Depends(get_session
     if not time_entry:
         raise HTTPException(status_code=404, detail="Stundeneintrag nicht gefunden")
     
+    if current_user.role == "mitarbeiter" and time_entry.employee_id != 1:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung, diesen Stundeneintrag zu löschen")
+
     session.delete(time_entry)
     session.commit()
     return {"message": "Stundeneintrag erfolgreich gelöscht"}
 
 @router.get("/project/{project_id}", response_model=List[TimeEntrySchema])
-def get_time_entries_by_project(project_id: int, session: Session = Depends(get_session)):
+def get_time_entries_by_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(require_employee_or_admin),
+):
     """
     Alle Stundeneinträge eines Projekts abrufen.
     
@@ -322,7 +348,11 @@ def get_time_entries_by_project(project_id: int, session: Session = Depends(get_
     return time_entries
 
 @router.get("/employee/{employee_id}", response_model=List[TimeEntrySchema])
-def get_time_entries_by_employee(employee_id: int, session: Session = Depends(get_session)):
+def get_time_entries_by_employee(
+    employee_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_employee_or_admin),
+):
     """
     Alle Stundeneinträge eines Mitarbeiters abrufen.
     
@@ -341,6 +371,9 @@ def get_time_entries_by_employee(employee_id: int, session: Session = Depends(ge
     if not employee:
         raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden")
     
+    if current_user.role == "mitarbeiter" and employee_id != 1:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung")
+
     statement = select(TimeEntry).where(TimeEntry.employee_id == employee_id)
     time_entries = session.exec(statement).all()
     return time_entries

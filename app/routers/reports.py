@@ -10,11 +10,15 @@ import os
 import uuid
 from datetime import datetime
 from ..database import get_session
-from ..models import Report, Project, ReportImage
+from ..models import Report, Project, ReportImage, User
 from ..schemas import ReportCreate, ReportUpdate, Report as ReportSchema, ReportImage as ReportImageSchema
-from ..auth import get_current_user, require_buchhalter_or_admin
+from ..auth import get_current_user, require_buchhalter_or_admin, require_employee_or_admin
 
-router = APIRouter(prefix="/reports", tags=["reports"])
+router = APIRouter(
+    prefix="/reports",
+    tags=["reports"],
+    dependencies=[Depends(get_current_user)],
+)
 
 # Upload-Verzeichnis für Bilder
 UPLOAD_DIR = "uploads/images"
@@ -36,7 +40,10 @@ def _get_report_attachments(session: Session, report_id: int) -> list:
     return attachments
 
 @router.get("/", response_model=List[ReportSchema])
-def get_reports(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_reports(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     """
     Alle Berichte abrufen.
     
@@ -96,7 +103,11 @@ def get_reports(session: Session = Depends(get_session), current_user = Depends(
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Berichte: {str(e)}")
 
 @router.post("/", response_model=ReportSchema)
-def create_report(report: ReportCreate, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def create_report(
+    report: ReportCreate,
+    session: Session = Depends(get_session),
+    _: User = Depends(require_employee_or_admin),
+):
     """
     Neuen Bericht erstellen.
     
@@ -158,7 +169,11 @@ def create_report(report: ReportCreate, session: Session = Depends(get_session),
         raise HTTPException(status_code=500, detail=f"Fehler bei Bericht-Erstellung: {str(e)}")
 
 @router.get("/{report_id}", response_model=ReportSchema)
-def get_report(report_id: int, session: Session = Depends(get_session)):
+def get_report(
+    report_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(get_current_user),
+):
     """
     Einzelnen Bericht anhand der ID abrufen.
     
@@ -209,10 +224,10 @@ def get_report(report_id: int, session: Session = Depends(get_session)):
 
 @router.put("/{report_id}", response_model=ReportSchema)
 def update_report(
-    report_id: int, 
-    report_update: ReportUpdate, 
+    report_id: int,
+    report_update: ReportUpdate,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Bericht aktualisieren.
@@ -265,7 +280,11 @@ def update_report(
     return report
 
 @router.delete("/{report_id}")
-def delete_report(report_id: int, session: Session = Depends(get_session)):
+def delete_report(
+    report_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(require_buchhalter_or_admin),
+):
     """
     Bericht löschen.
     
@@ -289,9 +308,10 @@ def delete_report(report_id: int, session: Session = Depends(get_session)):
 
 @router.post("/{report_id}/upload_image")
 def upload_image(
-    report_id: int, 
-    file: UploadFile = File(...), 
-    session: Session = Depends(get_session)
+    report_id: int,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Bild zu einem Bericht hochladen.
@@ -339,7 +359,11 @@ def upload_image(
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Datei: {str(e)}")
 
 @router.get("/project/{project_id}", response_model=List[ReportSchema])
-def get_reports_by_project(project_id: int, session: Session = Depends(get_session)):
+def get_reports_by_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    _: User = Depends(require_employee_or_admin),
+):
     """
     Alle Berichte eines Projekts abrufen.
     
@@ -368,7 +392,7 @@ async def upload_report_file(
     report_id: int,
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Foto für einen Bericht hochladen.
@@ -455,7 +479,7 @@ async def upload_report_file(
 async def get_report_files(
     report_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Alle Fotos eines Berichts abrufen.
@@ -520,7 +544,7 @@ async def get_report_file(
     report_id: int,
     filename: str,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Einzelnes Foto eines Berichts abrufen.
@@ -546,7 +570,7 @@ async def delete_report_file(
     report_id: int,
     filename: str,
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin)
+    _: User = Depends(require_buchhalter_or_admin),
 ):
     """
     Foto eines Berichts löschen.
@@ -593,7 +617,7 @@ def upload_image(
     description: str = None,
     image_type: str = "progress",
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Lädt ein Bild für einen Bericht hoch.
@@ -650,7 +674,7 @@ def upload_image(
 def get_report_images(
     report_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Ruft alle Bilder für einen Bericht ab.
@@ -668,7 +692,7 @@ def get_report_images(
 def delete_image(
     image_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_buchhalter_or_admin),
 ):
     """
     Löscht ein Berichtsbild.
@@ -690,7 +714,7 @@ def delete_image(
 def download_image(
     image_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Lädt ein Berichtsbild herunter.
@@ -713,7 +737,8 @@ def download_image(
 @router.get("/images/{image_id}/view")
 def view_report_image(
     image_id: int,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    _: User = Depends(require_employee_or_admin),
 ):
     """
     Berichtsbild anzeigen (öffentlicher Endpoint für <img> tags).
