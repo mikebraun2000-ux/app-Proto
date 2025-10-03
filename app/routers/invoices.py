@@ -496,14 +496,14 @@ def generate_invoice_calculation(
     return generator.generate_invoice(request)
 
 
-@router.post("/create-from-calculation", response_model=InvoiceSchema)
+@router.post("/create-from-calculation/{project_id}", response_model=InvoiceSchema)
 def create_invoice_from_calculation(
+    project_id: int,
     request_data: dict,
     session: Session = Depends(get_session),
     current_user=Depends(require_buchhalter_or_admin),
 ):
     """Rechnung basierend auf einer vorherigen Berechnung anlegen."""
-    project_id = request_data.get("project_id")
     calculation = request_data.get("calculation")
     invoice_number = request_data.get("invoice_number")
     client_name = request_data.get("client_name")
@@ -512,7 +512,6 @@ def create_invoice_from_calculation(
     missing = [
         field
         for field, value in {
-            "project_id": project_id,
             "calculation": calculation,
             "invoice_number": invoice_number,
             "client_name": client_name,
