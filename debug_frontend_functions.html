@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Frontend Function Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Authentifizierung</h2>
+        <button onclick="testLogin()">Login Test</button>
+        <button onclick="testMe()">Test /auth/me</button>
+        <button onclick="clearAuth()">Auth Löschen</button>
+        <div id="auth-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Daten-Endpunkte</h2>
+        <button onclick="testEndpoint('/projects')">Projects</button>
+        <button onclick="testEndpoint('/employees')">Employees</button>
+        <button onclick="testEndpoint('/offers')">Offers</button>
+        <button onclick="testEndpoint('/invoices')">Invoices</button>
+        <button onclick="testEndpoint('/reports')">Reports</button>
+        <button onclick="testEndpoint('/time-entries')">Time Entries</button>
+        <div id="endpoint-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Tenant & Settings</h2>
+        <button onclick="testEndpoint('/auth/tenant/settings')">Tenant Settings</button>
+        <button onclick="testEndpoint('/auth/users')">Users</button>
+        <button onclick="testEndpoint('/auth/invitations')">Invitations</button>
+        <div id="tenant-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Logo Management</h2>
+        <button onclick="testEndpoint('/company-logo/current')">Current Logo</button>
+        <div id="logo-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        let authToken = localStorage.getItem('access_token');
+
+        function log(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            container.innerHTML += `<div class="${className}">${new Date().toLocaleTimeString()}: ${message}</div>`;
+        }
+
+        async function testLogin() {
+            const resultId = 'auth-result';
+            document.getElementById(resultId).innerHTML = '';
+            log(resultId, 'Starte Login-Test...');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+
+                log(resultId, `Status: ${response.status}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('access_token', authToken);
+                    log(resultId, `✓ Login erfolgreich! Token: ${authToken.substring(0, 20)}...`, 'success');
+                    log(resultId, `<pre>${JSON.stringify(data, null, 2)}</pre>`);
+                } else {
+                    const errorText = await response.text();
+                    log(resultId, `✗ Login fehlgeschlagen: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `✗ Fehler: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMe() {
+            const resultId = 'auth-result';
+            if (!authToken) {
+                log(resultId, '✗ Kein Token vorhanden! Bitte erst einloggen.', 'error');
+                return;
+            }
+
+            log(resultId, 'Teste /auth/me...');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                log(resultId, `Status: ${response.status}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(resultId, `✓ User geladen!`, 'success');
+                    log(resultId, `<pre>${JSON.stringify(data, null, 2)}</pre>`);
+                } else {
+                    const errorText = await response.text();
+                    log(resultId, `✗ Fehler: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `✗ Fehler: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEndpoint(endpoint) {
+            const resultId = endpoint.includes('tenant') || endpoint.includes('users') || endpoint.includes('invitations') ? 'tenant-result' : endpoint.includes('logo') ? 'logo-result' : 'endpoint-result';
+            
+            if (!authToken) {
+                log(resultId, '✗ Kein Token vorhanden! Bitte erst einloggen.', 'error');
+                return;
+            }
+
+            log(resultId, `Teste ${endpoint}...`);
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                log(resultId, `Status: ${response.status}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = Array.isArray(data) ? data.length : 'N/A';
+                    log(resultId, `✓ ${endpoint}: ${count} Einträge`, 'success');
+                    if (Array.isArray(data) && data.length > 0) {
+                        log(resultId, `<pre>Erstes Element: ${JSON.stringify(data[0], null, 2)}</pre>`);
+                    } else if (!Array.isArray(data)) {
+                        log(resultId, `<pre>${JSON.stringify(data, null, 2)}</pre>`);
+                    }
+                } else {
+                    const errorText = await response.text();
+                    log(resultId, `✗ ${endpoint} Fehler (${response.status}): ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `✗ ${endpoint} Fehler: ${error.message}`, 'error');
+            }
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('access_token');
+            authToken = null;
+            log('auth-result', '✓ Authentifizierung gelöscht', 'warning');
+        }
+
+        // Auto-Refresh Token beim Laden
+        window.onload = function() {
+            if (authToken) {
+                log('auth-result', `Token gefunden: ${authToken.substring(0, 20)}...`, 'success');
+            } else {
+                log('auth-result', 'Kein Token vorhanden - bitte einloggen', 'warning');
+            }
+        };
+    </script>
+</body>
+</html>
+

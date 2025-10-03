@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bau-Dokumentation - Anmeldung</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 3rem;
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .login-header h1 {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .login-header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+        
+        .form-floating {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-control {
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        .alert {
+            border-radius: 12px;
+            border: none;
+            font-weight: 500;
+        }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+        
+        .role-mitarbeiter { background: #e3f2fd; color: #1976d2; }
+        .role-buchhalter { background: #f3e5f5; color: #7b1fa2; }
+        .role-admin { background: #fff3e0; color: #f57c00; }
+        
+        .demo-users {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .demo-users h6 {
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .demo-user {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .demo-user:hover {
+            background: #e9ecef;
+        }
+        
+        .demo-user:last-child {
+            margin-bottom: 0;
+        }
+        
+        .demo-user-info {
+            flex: 1;
+        }
+        
+        .demo-user-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+        
+        .demo-user-role {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .demo-user-credentials {
+            font-size: 0.8rem;
+            color: #adb5bd;
+            font-family: monospace;
+        }
+        
+        @media (max-width: 768px) {
+            .login-container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1><i class="fas fa-hammer me-2"></i>Bau-Dokumentation</h1>
+            <p>Bitte melden Sie sich an</p>
+        </div>
+        
+        <!-- Alert für Fehlermeldungen -->
+        <div id="alertContainer"></div>
+        
+        <!-- Login Form -->
+        <form id="loginForm">
+            <div class="form-floating">
+                <input type="text" class="form-control" id="username" placeholder="Benutzername" required>
+                <label for="username"><i class="fas fa-user me-2"></i>Benutzername</label>
+            </div>
+            
+            <div class="form-floating">
+                <input type="password" class="form-control" id="password" placeholder="Passwort" required>
+                <label for="password"><i class="fas fa-lock me-2"></i>Passwort</label>
+            </div>
+            
+            <button type="submit" class="btn btn-login" id="loginBtn">
+                <i class="fas fa-sign-in-alt me-2"></i>Anmelden
+            </button>
+        </form>
+        
+        <!-- Demo Benutzer -->
+        <div class="demo-users">
+            <h6><i class="fas fa-info-circle me-2"></i>Demo-Benutzer (zum Testen)</h6>
+            
+            <div class="demo-user" onclick="fillCredentials('admin', 'admin123')">
+                <div class="demo-user-info">
+                    <div class="demo-user-name">Administrator</div>
+                    <div class="demo-user-role">
+                        <span class="role-badge role-admin">Admin</span>
+                    </div>
+                </div>
+                <div class="demo-user-credentials">admin / admin123</div>
+            </div>
+            
+            <div class="demo-user" onclick="fillCredentials('buchhalter', 'admin123')">
+                <div class="demo-user-info">
+                    <div class="demo-user-name">Buchhalter</div>
+                    <div class="demo-user-role">
+                        <span class="role-badge role-buchhalter">Buchhalter</span>
+                    </div>
+                </div>
+                <div class="demo-user-credentials">buchhalter / admin123</div>
+            </div>
+            
+            <div class="demo-user" onclick="fillCredentials('mitarbeiter1', 'admin123')">
+                <div class="demo-user-info">
+                    <div class="demo-user-name">Mitarbeiter</div>
+                    <div class="demo-user-role">
+                        <span class="role-badge role-mitarbeiter">Mitarbeiter</span>
+                    </div>
+                </div>
+                <div class="demo-user-credentials">mitarbeiter1 / admin123</div>
+            </div>
+        </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Login-Funktionalität
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            // Button deaktivieren
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Anmeldung...';
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Token im localStorage speichern
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('user_role', data.role || 'mitarbeiter');
+                    
+                    // Weiterleitung zur Hauptanwendung
+                    window.location.href = '/app';
+                } else {
+                    const error = await response.json();
+                    showAlert('Anmeldung fehlgeschlagen: ' + (error.detail || 'Unbekannter Fehler'), 'danger');
+                }
+            } catch (error) {
+                showAlert('Verbindungsfehler: ' + error.message, 'danger');
+            } finally {
+                // Button wieder aktivieren
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Anmelden';
+            }
+        });
+        
+        // Demo-Benutzer ausfüllen
+        function fillCredentials(username, password) {
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = password;
+        }
+        
+        // Alert anzeigen
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-${type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+        
+        // Prüfen ob bereits eingeloggt
+        if (localStorage.getItem('access_token')) {
+            window.location.href = '/app';
+        }
+    </script>
+</body>
+</html>
+

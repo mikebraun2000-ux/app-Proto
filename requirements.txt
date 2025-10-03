@@ -1,0 +1,29 @@
+# FastAPI und verwandte Pakete
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Datenbank und ORM
+sqlmodel==0.0.14
+sqlalchemy>=2.0.25
+
+# PDF-Generierung
+fpdf2==2.7.6
+
+# Datei-Upload und -Verarbeitung
+python-multipart==0.0.6
+
+# Bildverarbeitung
+Pillow>=10.0.0
+
+# Authentifizierung
+python-jose[cryptography]==3.5.0
+passlib[argon2]==1.7.4
+argon2-cffi==23.1.0
+
+# Zusätzliche Utilities
+python-dateutil==2.8.2
+python-dotenv==1.0.0
+alembic>=1.13.2
+stripe>=6.5.0
+reportlab>=3.6.13
+

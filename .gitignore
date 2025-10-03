@@ -1,0 +1,40 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Bytecode cache in nested packages
+**/__pycache__/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+.env.local
+.env.*
+
+# Secrets
+/.env
+
+
+# Editor directories
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local databases & Backups
+*.sqlite3
+*.db
+!database.db
+database_backup_*.db
+
+# Logs
+*.log
+
+# Upload cache
+uploads/tmp/

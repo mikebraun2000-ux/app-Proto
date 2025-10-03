@@ -1,0 +1,18 @@
+{
+  "project_id": 1,
+  "offer_id": null,
+  "invoice_number": "TEST-EDITED-EDITED-DEBUG",
+  "title": "Debug Test",
+  "description": "Debug-Beschreibung",
+  "client_name": "Debug Kunde",
+  "client_address": "Bearbeitete Adresse\n12345 Teststadt",
+  "total_amount": 123.46,
+  "currency": "EUR",
+  "invoice_date": "2025-01-27T00:00:00",
+  "due_date": "2025-02-27T00:00:00",
+  "items": "[{\"description\": \"Maurerarbeiten\", \"quantity\": 50, \"unit_price\": 45.0}]",
+  "status": "entwurf",
+  "id": 1,
+  "created_at": "2025-09-26T19:40:55.554936",
+  "updated_at": "2025-09-26T19:40:55.554936"
+}

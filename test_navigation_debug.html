@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Navigation Debug</title>
+</head>
+<body>
+    <h1>Navigation Debug Test</h1>
+    <div id="debug-info"></div>
+    
+    <script>
+        // Simuliere Admin-Benutzer
+        const currentUser = { role: 'admin' };
+        
+        function hasPermission(permission) {
+            if (!currentUser) return false;
+            
+            const userRole = currentUser.role;
+            
+            switch(permission) {
+                case 'view_projects':
+                    return ['admin', 'buchhalter', 'mitarbeiter'].includes(userRole);
+                case 'edit_projects':
+                    return ['admin', 'buchhalter'].includes(userRole);
+                case 'delete_projects':
+                    return ['admin'].includes(userRole);
+                case 'view_reports':
+                    return ['admin', 'buchhalter', 'mitarbeiter'].includes(userRole);
+                case 'edit_reports':
+                    return ['admin', 'mitarbeiter'].includes(userRole);
+                case 'view_financial':
+                    return ['admin', 'buchhalter'].includes(userRole);
+                case 'edit_financial':
+                    return ['admin', 'buchhalter'].includes(userRole);
+                case 'view_employees':
+                    return ['admin', 'buchhalter'].includes(userRole);
+                case 'edit_employees':
+                    return ['admin'].includes(userRole);
+                case 'admin_only':
+                    return userRole === 'admin';
+                default:
+                    return false;
+            }
+        }
+        
+        function testNavigation() {
+            const navItems = {
+                'dashboard': { permission: 'view_projects' },
+                'projects': { permission: 'view_projects' },
+                'reports': { permission: 'view_reports' },
+                'offers': { permission: 'view_financial' },
+                'employees': { permission: 'view_employees' },
+                'time-tracking': { permission: 'view_reports' },
+                'invoices': { permission: 'view_financial' },
+                'logo-management': { permission: 'admin_only' }
+            };
+            
+            let debugInfo = '<h2>Navigation Test Results:</h2>';
+            debugInfo += `<p>Current User Role: ${currentUser.role}</p>`;
+            debugInfo += '<ul>';
+            
+            Object.keys(navItems).forEach(section => {
+                const hasAccess = navItems[section].permission === 'none' ? false : hasPermission(navItems[section].permission);
+                debugInfo += `<li>${section}: ${hasAccess ? 'ACCESS GRANTED' : 'ACCESS DENIED'} (permission: ${navItems[section].permission})</li>`;
+            });
+            
+            debugInfo += '</ul>';
+            document.getElementById('debug-info').innerHTML = debugInfo;
+        }
+        
+        // Test ausführen
+        testNavigation();
+    </script>
+</body>
+</html>
+
+

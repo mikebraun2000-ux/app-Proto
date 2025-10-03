@@ -1,0 +1,3462 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bau-Dokumentations-App</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔨</text></svg>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* CSS-Variablen für Light/Dark Mode */
+        :root {
+            /* Light Mode (Standard) */
+            --bg-primary: #FEFEFE;
+            --bg-secondary: rgba(255, 255, 255, 0.95);
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --border-color: rgba(74, 144, 226, 0.1);
+            --shadow-color: rgba(74, 144, 226, 0.08);
+            --card-bg: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #d1d5db;
+            --warning-bg: #fef3c7;
+            --warning-border: #f59e0b;
+            --info-bg: #dbeafe;
+            --info-border: #3b82f6;
+        }
+        
+        /* Dark Mode */
+        body.dark-mode {
+            --bg-primary: #111827;
+            --bg-secondary: rgba(31, 41, 55, 0.95);
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --border-color: rgba(75, 85, 99, 0.3);
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --card-bg: #1f2937;
+            --input-bg: #374151;
+            --input-border: #4b5563;
+            --warning-bg: #78350f;
+            --warning-border: #f59e0b;
+            --info-bg: #1e3a8a;
+            --info-border: #3b82f6;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .sidebar {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-color);
+            min-height: 100vh;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            transition: all 0.3s ease;
+        }
+        
+        /* Dark Mode wird durch CSS-Variablen gehandhabt */
+        
+        /* Form Controls mit CSS-Variablen */
+        .form-control, .form-select {
+            background-color: var(--input-bg);
+            border-color: var(--input-border);
+            color: var(--text-primary);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background-color: var(--input-bg);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        /* Modal mit CSS-Variablen */
+        .modal-content {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+        }
+        
+        .modal-header, .modal-footer {
+            border-color: var(--border-color);
+        }
+        
+        .main-content {
+            background: transparent;
+            min-height: 100vh;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(74, 144, 226, 0.08);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(74, 144, 226, 0.15);
+        }
+        
+        body.dark-mode .card {
+            background: rgba(31, 41, 55, 0.9);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        body.dark-mode .card:hover {
+            box-shadow: 0 8px 30px rgba(74, 144, 226, 0.2);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 12px 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(74, 144, 226, 0.4);
+            background: linear-gradient(135deg, #357ABD 0%, #2E6BA8 100%);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 12px 24px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 12px 24px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+        }
+        
+        .nav-link {
+            color: #374151;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin: 4px 0;
+            font-weight: 500;
+            position: relative;
+        }
+        
+        .nav-link:hover {
+            color: #4A90E2;
+            background-color: rgba(74, 144, 226, 0.1);
+            transform: translateX(4px);
+        }
+        
+        .nav-link.active {
+            color: white;
+            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+        }
+        
+        body.dark-mode .nav-link {
+            color: #D1D5DB;
+        }
+        
+        body.dark-mode .nav-link:hover {
+            color: #60A5FA;
+            background-color: rgba(74, 144, 226, 0.2);
+        }
+        
+        /* Dark Mode Text Colors */
+        body.dark-mode {
+            color: #D1D5DB;
+        }
+        
+        body.dark-mode h1, 
+        body.dark-mode h2, 
+        body.dark-mode h3, 
+        body.dark-mode h4, 
+        body.dark-mode h5, 
+        body.dark-mode h6 {
+            color: #F9FAFB;
+        }
+        
+        body.dark-mode .text-muted {
+            color: #9CA3AF !important;
+        }
+        
+        body.dark-mode .form-control {
+            background-color: rgba(31, 41, 55, 0.8);
+            border-color: rgba(74, 144, 226, 0.3);
+            color: #D1D5DB;
+        }
+        
+        body.dark-mode .form-control:focus {
+            background-color: rgba(31, 41, 55, 0.9);
+            border-color: #4A90E2;
+            box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.25);
+            color: #F9FAFB;
+        }
+        
+        body.dark-mode .table {
+            color: #D1D5DB;
+        }
+        
+        body.dark-mode .table-striped > tbody > tr:nth-of-type(odd) > td {
+            background-color: rgba(31, 41, 55, 0.5);
+        }
+        
+        /* Tab Content Styling */
+        .section .table {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.15);
+            border: 1px solid rgba(74, 144, 226, 0.2);
+        }
+        
+        /* Berichte-Tabelle spezifische Verbesserungen */
+        #reports-section .table {
+            font-size: 0.9rem;
+        }
+        
+        #reports-section .table th {
+            font-size: 0.85rem;
+            padding: 12px 8px;
+            white-space: nowrap;
+        }
+        
+        #reports-section .table td {
+            padding: 12px 8px;
+            vertical-align: middle;
+        }
+        
+        #reports-section .table td:first-child {
+            font-weight: 600;
+            min-width: 200px;
+        }
+        
+        #reports-section .table td:nth-child(2) {
+            min-width: 150px;
+        }
+        
+        #reports-section .table td:nth-child(3) {
+            min-width: 100px;
+            text-align: center;
+        }
+        
+        #reports-section .table td:nth-child(4) {
+            min-width: 150px;
+            text-align: center;
+        }
+        
+        #reports-section .table td:last-child {
+            min-width: 140px;
+            text-align: center;
+        }
+        
+        #reports-section .badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+        }
+        
+        /* Status Badge Farben */
+        #reports-section .badge.bg-primary {
+            background-color: #3B82F6 !important;
+        }
+        
+        #reports-section .badge.bg-success {
+            background-color: #10B981 !important;
+        }
+        
+        #reports-section .badge.bg-warning {
+            background-color: #F59E0B !important;
+        }
+        
+        #reports-section .badge.bg-danger {
+            background-color: #EF4444 !important;
+        }
+        
+        #reports-section .badge.bg-info {
+            background-color: #06B6D4 !important;
+        }
+        
+        .section .table thead th {
+            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+            color: white;
+            font-weight: 600;
+            border: none;
+            padding: 16px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section .table tbody td {
+            border: none;
+            padding: 16px;
+            border-bottom: 1px solid rgba(74, 144, 226, 0.15);
+            color: #374151;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        .section .table tbody tr:nth-child(even) td {
+            background: rgba(248, 250, 252, 0.8);
+        }
+        
+        .section .table tbody tr:hover td {
+            background: rgba(74, 144, 226, 0.08);
+            color: #1F2937;
+        }
+        
+        /* Dark Mode Tab Content */
+        body.dark-mode .section .table {
+            background: rgba(31, 41, 55, 0.95);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+        }
+        
+        body.dark-mode .section .table thead th {
+            background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+            color: #1F2937;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.1);
+        }
+        
+        body.dark-mode .section .table tbody td {
+            color: #F9FAFB;
+            border-bottom: 1px solid rgba(96, 165, 250, 0.2);
+            background: rgba(31, 41, 55, 0.8);
+            font-weight: 500;
+        }
+        
+        body.dark-mode .section .table tbody tr:nth-child(even) td {
+            background: rgba(55, 65, 81, 0.8);
+        }
+        
+        body.dark-mode .section .table tbody tr:hover td {
+            background: rgba(96, 165, 250, 0.15);
+            color: #FFFFFF;
+        }
+        
+        /* Dark Mode für Berichte-Tabelle */
+        body.dark-mode #reports-section .table td:first-child {
+            color: #F9FAFB;
+        }
+        
+        body.dark-mode #reports-section .badge.bg-primary {
+            background-color: #3B82F6 !important;
+            color: white;
+        }
+        
+        body.dark-mode #reports-section .badge.bg-success {
+            background-color: #10B981 !important;
+            color: white;
+        }
+        
+        body.dark-mode #reports-section .badge.bg-warning {
+            background-color: #F59E0B !important;
+            color: #1F2937;
+        }
+        
+        body.dark-mode #reports-section .badge.bg-danger {
+            background-color: #EF4444 !important;
+            color: white;
+        }
+        
+        body.dark-mode #reports-section .badge.bg-info {
+            background-color: #06B6D4 !important;
+            color: white;
+        }
+        
+        body.dark-mode #reports-section .badge.bg-secondary {
+            background-color: #6B7280 !important;
+            color: white;
+        }
+        
+        /* Empty State Styling */
+        .section .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: #6B7280;
+        }
+        
+        .section .empty-state i {
+            font-size: 3rem;
+            color: #9CA3AF;
+            margin-bottom: 16px;
+        }
+        
+        .section .empty-state h4 {
+            color: #6B7280;
+            margin-bottom: 8px;
+        }
+        
+        .section .empty-state p {
+            color: #9CA3AF;
+            margin-bottom: 0;
+        }
+        
+        /* Dark Mode Empty States */
+        body.dark-mode .section .empty-state {
+            color: #9CA3AF;
+        }
+        
+        body.dark-mode .section .empty-state i {
+            color: #6B7280;
+        }
+        
+        body.dark-mode .section .empty-state h4 {
+            color: #9CA3AF;
+        }
+        
+        body.dark-mode .section .empty-state p {
+            color: #6B7280;
+        }
+        
+        /* Dashboard Cards - Better Contrast */
+        .dashboard-card h5 {
+            color: #374151 !important;
+            font-weight: 600;
+        }
+        
+        .dashboard-card h3 {
+            color: #1F2937 !important;
+            font-weight: 700;
+        }
+        
+        .dashboard-card .text-muted {
+            color: #6B7280 !important;
+        }
+        
+        /* Dark Mode Dashboard Cards */
+        body.dark-mode .dashboard-card h5 {
+            color: #F9FAFB !important;
+        }
+        
+        body.dark-mode .dashboard-card h3 {
+            color: #FFFFFF !important;
+        }
+        
+        body.dark-mode .dashboard-card .text-muted {
+            color: #D1D5DB !important;
+        }
+        
+        /* Project List Items */
+        .dashboard-card .list-group-item {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(74, 144, 226, 0.2);
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .dashboard-card .list-group-item:hover {
+            background: rgba(74, 144, 226, 0.1);
+            color: #1F2937;
+        }
+        
+        body.dark-mode .dashboard-card .list-group-item {
+            background: rgba(31, 41, 55, 0.8);
+            border-color: rgba(96, 165, 250, 0.3);
+            color: #FFFFFF !important;
+            font-weight: 600;
+        }
+        
+        body.dark-mode .dashboard-card .list-group-item:hover {
+            background: rgba(96, 165, 250, 0.2);
+            color: #FFFFFF !important;
+        }
+        
+        /* Specific styling for project names in dark mode */
+        body.dark-mode .dashboard-card .list-group-item .d-flex {
+            color: #FFFFFF !important;
+        }
+        
+        body.dark-mode .dashboard-card .list-group-item .d-flex .flex-grow-1 {
+            color: #FFFFFF !important;
+            font-weight: 600;
+        }
+        
+        /* Force white text for all project names in dark mode */
+        body.dark-mode .dashboard-card .list-group-item * {
+            color: #FFFFFF !important;
+        }
+        
+        body.dark-mode .dashboard-card .list-group-item span {
+            color: #FFFFFF !important;
+        }
+        
+        body.dark-mode .dashboard-card .list-group-item div {
+            color: #FFFFFF !important;
+        }
+        
+        /* Override any inherited text colors */
+        body.dark-mode .dashboard-card .list-group-item,
+        body.dark-mode .dashboard-card .list-group-item *,
+        body.dark-mode .dashboard-card .list-group-item span,
+        body.dark-mode .dashboard-card .list-group-item div,
+        body.dark-mode .dashboard-card .list-group-item .text-muted {
+            color: #FFFFFF !important;
+        }
+        
+        /* Force all text in dashboard cards to be white in dark mode */
+        body.dark-mode .dashboard-card {
+            color: #FFFFFF !important;
+        }
+        
+        body.dark-mode .dashboard-card * {
+            color: #FFFFFF !important;
+        }
+        
+        /* Fix for regular cards in dashboard */
+        body.dark-mode .card {
+            background: rgba(31, 41, 55, 0.8) !important;
+            border-color: rgba(96, 165, 250, 0.3) !important;
+        }
+        
+        body.dark-mode .card-body {
+            background: rgba(31, 41, 55, 0.6) !important;
+        }
+        
+        body.dark-mode .card-body * {
+            color: #FFFFFF !important;
+        }
+        
+        body.dark-mode .card-body span {
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Specific fix for project names in cards */
+        body.dark-mode .card-body .project-name {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        body.dark-mode .card-body .d-flex span:not(.badge) {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Override any text-muted classes in cards */
+        body.dark-mode .card-body .text-muted {
+            color: #D1D5DB !important;
+        }
+        
+        /* ULTIMATE FIX - Force all text in dashboard cards to be white */
+        body.dark-mode .card .card-body,
+        body.dark-mode .card .card-body *,
+        body.dark-mode .card .card-body span,
+        body.dark-mode .card .card-body div,
+        body.dark-mode .card .card-body p {
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Specific fix for project names - multiple selectors */
+        body.dark-mode .card .card-body .d-flex,
+        body.dark-mode .card .card-body .d-flex span,
+        body.dark-mode .card .card-body .d-flex div,
+        body.dark-mode .card .card-body .project-name,
+        body.dark-mode .card .card-body .list-group-item,
+        body.dark-mode .card .card-body .list-group-item span {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Override any inherited styles with maximum specificity */
+        body.dark-mode .card .card-body .d-flex span:first-child {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* CSS class for JavaScript force fix */
+        .force-white-text {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        body.dark-mode .force-white-text {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* DEBUG: Specific fix for the actual HTML structure */
+        body.dark-mode #recent-projects span:not(.badge) {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        body.dark-mode #recent-projects .project-name {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        body.dark-mode #recent-projects .d-flex span:first-child {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* ULTIMATE FIX - Maximum specificity to override everything */
+        body.dark-mode #recent-projects span.project-name[style*="color: #FFFFFF"] {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Force override with attribute selector */
+        body.dark-mode #recent-projects span[style*="color: #FFFFFF"] {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Nuclear option - override any possible conflicting styles */
+        body.dark-mode #recent-projects * {
+            color: #FFFFFF !important;
+        }
+        
+        body.dark-mode #recent-projects .badge {
+            color: white !important;
+        }
+        
+        /* Keep icons colorful in dark mode - override the nuclear option */
+        body.dark-mode #recent-projects i {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode #recent-projects .fas,
+        body.dark-mode #recent-projects .far,
+        body.dark-mode #recent-projects .fab {
+            color: #4A90E2 !important;
+        }
+        
+        /* Specific icon colors for different types in recent-projects */
+        body.dark-mode #recent-projects .fa-clock {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode #recent-projects .fa-file-alt {
+            color: #10B981 !important;
+        }
+        
+        body.dark-mode #recent-projects .fa-euro-sign {
+            color: #F59E0B !important;
+        }
+        
+        body.dark-mode #recent-projects .fa-users {
+            color: #8B5CF6 !important;
+        }
+        
+        body.dark-mode #recent-projects .fa-chart-line {
+            color: #EF4444 !important;
+        }
+        
+        body.dark-mode #recent-projects .fa-hammer {
+            color: #F97316 !important;
+        }
+        
+        /* Keep icons colorful in dark mode */
+        body.dark-mode .dashboard-card i {
+            color: #4A90E2 !important;
+        }
+        
+        /* Override nuclear option for all dashboard icons */
+        body.dark-mode .card i {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode .card .fas,
+        body.dark-mode .card .far,
+        body.dark-mode .card .fab {
+            color: #4A90E2 !important;
+        }
+        
+        /* Force specific colors for dashboard metric cards */
+        body.dark-mode .dashboard-card .fas,
+        body.dark-mode .dashboard-card .far,
+        body.dark-mode .dashboard-card .fab {
+            color: #4A90E2 !important;
+        }
+        
+        /* Override the nuclear option with more specific selectors */
+        body.dark-mode .card .fas:not(.fa-euro-sign) {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode .card .far:not(.fa-euro-sign) {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode .card .fab:not(.fa-euro-sign) {
+            color: #4A90E2 !important;
+        }
+        
+        /* Specific icon colors for dashboard cards - HIGHER SPECIFICITY */
+        body.dark-mode .card .fa-clock,
+        body.dark-mode .dashboard-card .fa-clock {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode .card .fa-file-alt,
+        body.dark-mode .dashboard-card .fa-file-alt {
+            color: #10B981 !important;
+        }
+        
+        body.dark-mode .card .fa-euro-sign,
+        body.dark-mode .dashboard-card .fa-euro-sign {
+            color: #F59E0B !important;
+        }
+        
+        body.dark-mode .card .fa-users,
+        body.dark-mode .dashboard-card .fa-users {
+            color: #8B5CF6 !important;
+        }
+        
+        body.dark-mode .card .fa-chart-line,
+        body.dark-mode .dashboard-card .fa-chart-line {
+            color: #EF4444 !important;
+        }
+        
+        body.dark-mode .card .fa-hammer,
+        body.dark-mode .dashboard-card .fa-hammer {
+            color: #F97316 !important;
+        }
+        
+        body.dark-mode .card .fa-project-diagram,
+        body.dark-mode .dashboard-card .fa-project-diagram {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode .card .fa-clipboard-list,
+        body.dark-mode .dashboard-card .fa-clipboard-list {
+            color: #10B981 !important;
+        }
+        
+        body.dark-mode .card .fa-file-invoice,
+        body.dark-mode .dashboard-card .fa-file-invoice {
+            color: #F59E0B !important;
+        }
+        
+        /* Force colors for specific dashboard metric cards */
+        body.dark-mode #projects-card .fas {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode #reports-card .fas {
+            color: #10B981 !important;
+        }
+        
+        body.dark-mode #offers-card .fas {
+            color: #F59E0B !important;
+        }
+        
+        body.dark-mode #revenue-icon {
+            color: #10B981 !important;
+        }
+        
+        body.dark-mode .dashboard-card .fas,
+        body.dark-mode .dashboard-card .far,
+        body.dark-mode .dashboard-card .fab {
+            color: #4A90E2 !important;
+        }
+        
+        /* Specific icon colors for different types */
+        body.dark-mode .dashboard-card .fa-clock {
+            color: #4A90E2 !important;
+        }
+        
+        body.dark-mode .dashboard-card .fa-file-alt {
+            color: #10B981 !important;
+        }
+        
+        body.dark-mode .dashboard-card .fa-euro-sign {
+            color: #F59E0B !important;
+        }
+        
+        body.dark-mode .dashboard-card .fa-users {
+            color: #8B5CF6 !important;
+        }
+        
+        body.dark-mode .dashboard-card .fa-chart-line {
+            color: #EF4444 !important;
+        }
+        
+        body.dark-mode .dashboard-card .fa-hammer {
+            color: #F97316 !important;
+        }
+        
+        /* Specific override for project names */
+        body.dark-mode .dashboard-card .list-group-item .d-flex .flex-grow-1,
+        body.dark-mode .dashboard-card .list-group-item .d-flex .flex-grow-1 * {
+            color: #FFFFFF !important;
+            font-weight: 700;
+        }
+        
+        /* Specific styling for project-name class */
+        .project-name {
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        body.dark-mode .project-name {
+            color: #FFFFFF !important;
+            font-weight: 600;
+        }
+        
+        /* Force white color for project names in dark mode */
+        body.dark-mode .dashboard-card .project-name {
+            color: #FFFFFF !important;
+            font-weight: 700;
+        }
+        
+        /* Ultra-aggressive override for project names */
+        body.dark-mode .dashboard-card .list-group-item span {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        body.dark-mode .dashboard-card .list-group-item .project-name {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Override any possible inherited styles */
+        body.dark-mode .dashboard-card .list-group-item *:not(.badge) {
+            color: #FFFFFF !important;
+        }
+        
+        /* Status Badges in Dashboard */
+        .dashboard-card .badge {
+            font-weight: 600;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+        
+        .dashboard-card .badge.bg-success {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+        }
+        
+        .dashboard-card .badge.bg-warning {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+        }
+        
+        .dashboard-card .badge.bg-secondary {
+            background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
+        }
+        
+        .dashboard-card .badge.bg-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+        }
+        
+        /* Simple Modal Styling */
+        .modal-header {
+            background: #4A90E2;
+            color: white;
+        }
+        
+        .modal .btn-primary {
+            background: #4A90E2;
+            border-color: #4A90E2;
+        }
+        
+        .modal .btn-primary:hover {
+            background: #357ABD;
+            border-color: #357ABD;
+        }
+        
+        /* Dark Mode Modals */
+        body.dark-mode .modal-header {
+            background: #60A5FA;
+        }
+        
+        body.dark-mode .modal .btn-primary {
+            background: #60A5FA;
+            border-color: #60A5FA;
+        }
+        
+        body.dark-mode .modal .btn-primary:hover {
+            background: #3B82F6;
+            border-color: #3B82F6;
+        }
+        
+        /* Dark Mode Modal Form Fields */
+        body.dark-mode .modal .form-control {
+            background: #FFFFFF !important;
+            border-color: rgba(96, 165, 250, 0.3);
+            color: #1F2937 !important;
+        }
+        
+        body.dark-mode .modal .form-control:focus {
+            border-color: #60A5FA;
+            box-shadow: 0 0 0 0.2rem rgba(96, 165, 250, 0.25);
+            background: #FFFFFF !important;
+            color: #1F2937 !important;
+        }
+        
+        body.dark-mode .modal .form-select {
+            background: #FFFFFF !important;
+            border-color: rgba(96, 165, 250, 0.3);
+            color: #1F2937 !important;
+        }
+        
+        body.dark-mode .modal .form-select:focus {
+            border-color: #60A5FA;
+            box-shadow: 0 0 0 0.2rem rgba(96, 165, 250, 0.25);
+            background: #FFFFFF !important;
+            color: #1F2937 !important;
+        }
+        
+        /* Dark Mode Stundenerfassung Dropdown */
+        body.dark-mode #clockProject {
+            background: #FFFFFF !important;
+            border-color: rgba(96, 165, 250, 0.5) !important;
+            color: #1F2937 !important;
+            font-weight: 600 !important;
+        }
+        
+        body.dark-mode #clockProject:focus {
+            border-color: #60A5FA !important;
+            box-shadow: 0 0 0 0.3rem rgba(96, 165, 250, 0.4) !important;
+            background: #FFFFFF !important;
+            color: #1F2937 !important;
+        }
+        
+        body.dark-mode #clockProject option {
+            background: #FFFFFF !important;
+            color: #1F2937 !important;
+            font-weight: 600 !important;
+        }
+        
+        body.dark-mode #clockProject option:checked {
+            background: #60A5FA !important;
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Verbesserter Kontrast für Status-Anzeige */
+        body.dark-mode #clockStatus .alert {
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            font-weight: 600 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        body.dark-mode #clockStatus .alert-info {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%) !important;
+            color: #ffffff !important;
+            border-color: #60a5fa !important;
+        }
+        
+        body.dark-mode #clockStatus .alert-success {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+            color: #ffffff !important;
+            border-color: #34d399 !important;
+        }
+        
+        /* Verbesserter Kontrast für Buttons */
+        body.dark-mode #clockInBtn {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+            border: 2px solid #34d399 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        body.dark-mode #clockOutBtn {
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
+            border: 2px solid #f87171 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        body.dark-mode #pauseBtn {
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%) !important;
+            border: 2px solid #fbbf24 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        body.dark-mode .modal .form-label {
+            color: #374151 !important;
+        }
+        
+        /* Dark Mode Modal Background */
+        body.dark-mode .modal-content {
+            background: #F9FAFB !important;
+        }
+        
+        body.dark-mode .modal-body {
+            background: #F9FAFB !important;
+        }
+        
+        body.dark-mode .modal-footer {
+            background: #F9FAFB !important;
+        }
+        
+        /* Status Badge Styling */
+        .badge {
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge.bg-success {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+        }
+        
+        .badge.bg-warning {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+        }
+        
+        .badge.bg-secondary {
+            background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
+        }
+        
+        .badge.bg-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
+            color: white;
+            box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+        }
+        
+        /* Button Visibility Fixes */
+        #darkModeToggle {
+            border: 2px solid #4A90E2 !important;
+            color: #4A90E2 !important;
+            background-color: rgba(74, 144, 226, 0.15) !important;
+            font-weight: 600 !important;
+            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2) !important;
+        }
+        
+        #darkModeToggle:hover {
+            background-color: #4A90E2 !important;
+            color: white !important;
+            border-color: #4A90E2 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3) !important;
+        }
+        
+        body.dark-mode #darkModeToggle {
+            border-color: #60A5FA !important;
+            color: #60A5FA !important;
+            background-color: rgba(96, 165, 250, 0.1) !important;
+        }
+        
+        body.dark-mode #darkModeToggle:hover {
+            background-color: #60A5FA !important;
+            color: #1F2937 !important;
+            border-color: #60A5FA !important;
+        }
+        
+        /* Logout Button Styling */
+        .btn-outline-light {
+            border: 2px solid #4A90E2 !important;
+            color: #4A90E2 !important;
+            background-color: rgba(74, 144, 226, 0.15) !important;
+            font-weight: 600 !important;
+            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2) !important;
+        }
+        
+        .btn-outline-light:hover {
+            background-color: #4A90E2 !important;
+            color: white !important;
+            border-color: #4A90E2 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3) !important;
+        }
+        
+        body.dark-mode .btn-outline-light {
+            border-color: #60A5FA !important;
+            color: #60A5FA !important;
+            background-color: rgba(96, 165, 250, 0.1) !important;
+        }
+        
+        body.dark-mode .btn-outline-light:hover {
+            background-color: #60A5FA !important;
+            color: #1F2937 !important;
+            border-color: #60A5FA !important;
+        }
+        
+        /* Dark Mode User Display */
+        body.dark-mode #userDisplay {
+            background-color: rgba(96, 165, 250, 0.1) !important;
+            border-color: rgba(96, 165, 250, 0.3) !important;
+        }
+        
+        body.dark-mode #userDisplay .text-primary {
+            color: #60A5FA !important;
+        }
+        
+        body.dark-mode #userDisplay .text-primary.text-opacity-75 {
+            color: rgba(96, 165, 250, 0.75) !important;
+        }
+        
+        body.dark-mode #userDisplay .btn-outline-primary {
+            border-color: #60A5FA !important;
+            color: #60A5FA !important;
+        }
+        
+        body.dark-mode #userDisplay .btn-outline-primary:hover {
+            background-color: #60A5FA !important;
+            color: #1F2937 !important;
+        }
+        
+        /* Logo Dark Mode */
+        body.dark-mode h4.text-primary {
+            color: #60A5FA !important;
+        }
+        
+        .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 20px;
+            background: #007AFF;
+            border-radius: 0 2px 2px 0;
+        }
+        
+        .table th {
+            background: #f8f9fa;
+            border: none;
+            font-weight: 600;
+            color: #1d1d1f;
+            padding: 16px;
+        }
+        
+        .table td {
+            border: none;
+            padding: 16px;
+            vertical-align: middle;
+        }
+        
+        .table tbody tr {
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(0, 122, 255, 0.05);
+        }
+        
+        .form-control:focus {
+            border-color: #007AFF;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+            outline: none;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 2px solid #e5e5e7;
+            padding: 12px 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .modal-content {
+            border-radius: 20px;
+            border: none;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal-header {
+            border-bottom: 1px solid #f0f0f0;
+            border-radius: 20px 20px 0 0;
+            padding: 24px;
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-footer {
+            border-top: 1px solid #f0f0f0;
+            border-radius: 0 0 20px 20px;
+            padding: 24px;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 16px 20px;
+        }
+        
+        .clock-display {
+            font-size: 3rem;
+            font-weight: 200;
+            color: #007AFF;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+        }
+        
+        .work-time-card {
+            background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 30px rgba(0, 122, 255, 0.3);
+        }
+        
+        .work-time-card h3 {
+            color: white;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .work-time-card p {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 0;
+        }
+        
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(74, 144, 226, 0.1);
+            box-shadow: 0 4px 20px rgba(74, 144, 226, 0.08);
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(74, 144, 226, 0.15);
+            border-color: rgba(74, 144, 226, 0.2);
+        }
+        
+        body.dark-mode .dashboard-card {
+            background: rgba(31, 41, 55, 0.95);
+            border-color: rgba(96, 165, 250, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        body.dark-mode .dashboard-card:hover {
+            box-shadow: 0 8px 30px rgba(96, 165, 250, 0.2);
+            border-color: rgba(96, 165, 250, 0.3);
+        }
+        
+        .dashboard-card i {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+        
+        .dashboard-card h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .dashboard-card h5 {
+            color: #6B7280;
+            font-weight: 500;
+        }
+        
+        body.dark-mode .dashboard-card h5 {
+            color: #9CA3AF;
+        }
+        
+        body.dark-mode .dashboard-card h3 {
+            color: #F9FAFB;
+        }
+        
+        .user-display {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .user-display .btn {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 24px;
+        }
+        
+        .section-title i {
+            color: #4A90E2;
+            margin-right: 12px;
+        }
+        
+        /* Tab Section Backgrounds */
+        .section {
+            background: rgba(248, 250, 252, 0.5);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(74, 144, 226, 0.1);
+            box-shadow: 0 2px 10px rgba(74, 144, 226, 0.05);
+        }
+        
+        .section h2 {
+            color: #374151;
+        }
+        
+        .section h2 i {
+            color: #4A90E2;
+        }
+        
+        /* Dark Mode Tab Sections */
+        body.dark-mode .section {
+            background: rgba(31, 41, 55, 0.8);
+            border-color: rgba(96, 165, 250, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        body.dark-mode .section h2 {
+            color: #F9FAFB;
+        }
+        
+        body.dark-mode .section h2 i {
+            color: #60A5FA;
+        }
+        
+        body.dark-mode .section-title {
+            color: #F9FAFB;
+        }
+        
+        body.dark-mode .section-title i {
+            color: #60A5FA;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.working {
+            background-color: #34C759;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.break {
+            background-color: #FF9500;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.offline {
+            background-color: #FF3B30;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .loading {
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                width: 80%;
+                height: 100vh;
+                z-index: 1050;
+                transition: left 0.3s ease;
+                overflow-y: auto;
+            }
+            
+            .sidebar.show {
+                left: 0;
+            }
+            
+            .sidebar.show::after {
+                content: '';
+                position: fixed;
+                top: 0;
+                left: 80%;
+                width: 20%;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: -1;
+            }
+            
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+            
+            .form-control-lg, .form-select-lg {
+                font-size: 16px !important;
+                padding: 12px 16px !important;
+                min-height: 48px !important;
+            }
+            
+            .btn-lg {
+                padding: 12px 24px !important;
+                font-size: 16px !important;
+                min-height: 48px !important;
+            }
+            
+            .modal-dialog {
+                margin: 10px !important;
+            }
+            
+            .modal-body {
+                padding: 20px !important;
+            }
+            
+            .timer-display {
+                font-size: 2rem !important;
+            }
+            
+            .table-responsive {
+                font-size: 14px;
+            }
+            
+            .card {
+                margin-bottom: 1rem;
+            }
+            
+            .dashboard-card {
+                margin-bottom: 1rem;
+            }
+            
+            .nav-link {
+                padding: 12px 16px;
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .container-fluid {
+                padding: 0;
+            }
+            
+            .main-content {
+                padding: 1rem !important;
+            }
+            
+            .sidebar {
+                width: 90%;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+            
+            .table th, .table td {
+                padding: 8px 4px;
+                font-size: 12px;
+            }
+        }
+        
+        /* Tablet Optimization */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .sidebar {
+                width: 25%;
+            }
+            
+            .main-content {
+                width: 75%;
+            }
+        }
+        
+        /* Desktop Optimization */
+        @media (min-width: 1025px) {
+            .sidebar {
+                width: 20%;
+            }
+            
+            .main-content {
+                width: 80%;
+            }
+        }
+        
+        /* Timer Styles */
+        .timer-display {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .validation-alert {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .loading {
+            display: none;
+        }
+        .loading.show {
+            display: block;
+        }
+        .alert {
+            border: none;
+            border-radius: 0.5rem;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .invoice-preview {
+            width: 100%;
+            max-width: 960px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 0;
+            padding: 3rem 4rem;
+            font-family: "Helvetica", "Arial", sans-serif;
+            color: #111827;
+        }
+
+        .invoice-preview .invoice-header {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 2rem;
+            align-items: flex-start;
+        }
+
+        .invoice-preview .company-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .invoice-preview .company-contact {
+            margin-top: 0.45rem;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .invoice-preview .company-contact .line {
+            display: block;
+        }
+
+        .invoice-preview .company-tax {
+            margin-top: 1rem;
+            font-size: 0.78rem;
+            line-height: 1.5;
+        }
+
+        .invoice-preview .company-tax .line {
+            display: block;
+        }
+
+        .invoice-preview .logo-box {
+            width: 240px;
+            height: 110px;
+            border: 1px solid #9ca3af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #f9fafb;
+            background: linear-gradient(135deg, #1f2937, #111827);
+            letter-spacing: 0.08em;
+        }
+
+        .invoice-preview .invoice-title {
+            margin: 2rem 0 1.6rem;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .invoice-preview .meta-section {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 2.2rem;
+            margin-bottom: 1.8rem;
+            font-size: 0.8rem;
+        }
+
+        .invoice-preview .meta-block {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .invoice-preview .meta-title {
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+        }
+
+        .invoice-preview .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .invoice-preview .meta-table td {
+            padding: 0.2rem 0;
+            vertical-align: top;
+        }
+
+        .invoice-preview .meta-table .label {
+            color: #6b7280;
+            padding-right: 1.5rem;
+            white-space: nowrap;
+        }
+
+        .invoice-preview .invoice-items {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .invoice-preview .invoice-items thead {
+            background: #0f172a;
+            color: #f9fafb;
+        }
+
+        .invoice-preview .invoice-items th,
+        .invoice-preview .invoice-items td {
+            padding: 0.55rem 0.75rem;
+            border: 1px solid #d1d5db;
+        }
+
+        .invoice-preview .invoice-items td:nth-child(1),
+        .invoice-preview .invoice-items td:nth-child(3),
+        .invoice-preview .invoice-items td:nth-child(4) {
+            text-align: center;
+        }
+
+        .invoice-preview .invoice-items td:nth-child(5),
+        .invoice-preview .invoice-items td:nth-child(6) {
+            text-align: right;
+        }
+
+        .invoice-preview .invoice-summary {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1.6rem;
+            font-size: 0.82rem;
+            margin-top: 1.5rem;
+        }
+
+        .invoice-preview .summary-lines {
+            min-width: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .invoice-preview .summary-lines .row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .invoice-preview .summary-lines .label {
+            color: #6b7280;
+        }
+
+        .invoice-preview .summary-total {
+            background: #0f172a;
+            color: #f9fafb;
+            padding: 0.65rem 1.7rem;
+            font-weight: 700;
+            border-radius: 4px;
+            align-self: flex-start;
+        }
+
+        .invoice-preview .invoice-footer {
+            margin-top: 2.6rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        body.dark-mode .invoice-preview {
+            background: #1f2937;
+            border-color: rgba(148, 163, 184, 0.35);
+            color: #e2e8f0;
+        }
+
+        body.dark-mode .invoice-preview .company-contact .line,
+        body.dark-mode .invoice-preview .company-tax .line,
+        body.dark-mode .invoice-preview .meta-table td {
+            color: rgba(226, 232, 240, 0.82);
+        }
+
+        body.dark-mode .invoice-preview .meta-table .label {
+            color: rgba(226, 232, 240, 0.65);
+        }
+
+        body.dark-mode .invoice-preview .logo-box {
+            border-color: rgba(148, 163, 184, 0.5);
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(17, 24, 39, 0.95));
+        }
+
+        body.dark-mode .invoice-preview .invoice-items thead {
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        body.dark-mode .invoice-preview .invoice-items td {
+            border-color: rgba(148, 163, 184, 0.3);
+            background: rgba(30, 41, 59, 0.55);
+        }
+
+        body.dark-mode .invoice-preview .summary-total {
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        body.dark-mode .invoice-preview .invoice-footer {
+            color: rgba(226, 232, 240, 0.6);
+        }
+
+        @media (max-width: 992px) {
+            .invoice-preview {
+                padding: 2rem 1.5rem;
+            }
+
+            .invoice-preview .invoice-header {
+                grid-template-columns: 1fr;
+            }
+
+            .invoice-preview .logo-box {
+                justify-self: start;
+            }
+
+            .invoice-preview .meta-section {
+                grid-template-columns: 1fr;
+            }
+
+            .invoice-preview .invoice-summary {
+                flex-direction: column;
+                align-items: flex-end;
+            }
+        }
+
+        /* ... existing code ... */
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 sidebar p-0">
+                <div class="p-3">
+                    <h4 class="text-primary mb-4 fw-bold">
+                        <i class="fas fa-hard-hat me-2"></i>
+                        Bau-Doku
+                    </h4>
+                    
+                    <!-- Dark Mode Toggle -->
+                    <div class="d-flex justify-content-center mb-3">
+                        <button class="btn btn-outline-primary btn-sm" onclick="toggleTheme()" id="darkModeToggle">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                            <span id="darkModeText">Dark Mode</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Admin Benachrichtigungen (nur für Admin sichtbar) -->
+                    <div id="adminNotifications" class="d-flex justify-content-center mb-3" style="display: none;">
+                        <button class="btn btn-outline-warning btn-sm" onclick="showNotifications()">
+                            <i class="fas fa-bell me-1"></i>Benachrichtigungen
+                            <span id="notificationBadge" class="badge bg-danger ms-1" style="display: none;">0</span>
+                        </button>
+                    </div>
+                    
+                    
+                    <!-- Benutzeranzeige -->
+                    <div id="userDisplay" class="mb-4 p-3 bg-primary bg-opacity-10 rounded border border-primary border-opacity-25">
+                        <div class="text-primary fw-bold">
+                            <i class="fas fa-user me-2"></i>Lade Benutzerdaten...
+                        </div>
+                    </div>
+                <nav class="nav flex-column" id="mainNavigation">
+                    <a class="nav-link mb-3" href="#" data-section="dashboard">
+                        <i class="fas fa-tachometer-alt me-3"></i> Dashboard
+                    </a>
+                    <a class="nav-link mb-3" href="#" data-section="projects">
+                        <i class="fas fa-project-diagram me-3"></i> Projekte
+                    </a>
+                    <a class="nav-link mb-3" href="#" data-section="reports">
+                        <i class="fas fa-clipboard-list me-3"></i> Berichte
+                    </a>
+                    <a class="nav-link mb-3" href="#" data-section="offers">
+                        <i class="fas fa-file-invoice me-3"></i> Angebote
+                    </a>
+                    <a class="nav-link mb-3" href="#" data-section="auto-offers">
+                        <i class="fas fa-magic me-3"></i> Automatische Angebote
+                    </a>
+                    <a class="nav-link mb-3" href="#" data-section="time-tracking">
+                        <i class="fas fa-clock me-3"></i> Stundenerfassung
+                    </a>
+                    <a class="nav-link mb-3" href="#" data-section="invoices">
+                        <i class="fas fa-file-invoice-dollar me-3"></i> Rechnungen
+                    </a>
+                    <div class="mt-4">
+                        <span class="text-uppercase text-muted small">Verwaltung</span>
+                        <a class="nav-link mt-2" href="#" data-section="tenant-settings">
+                            <i class="fas fa-building me-3"></i> Firmenstammdaten
+                        </a>
+                        <a class="nav-link" href="#" id="openLogoModal">
+                            <i class="fas fa-image me-3"></i> Logo
+                        </a>
+                        <a class="nav-link" href="#" data-section="billing" id="billing-nav" style="display: none;">
+                            <i class="fas fa-credit-card me-3"></i> Abonnement
+                        </a>
+                    </div>
+                </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 main-content">
+                <!-- Mobile Menu Button -->
+                <div class="d-md-none p-3">
+                    <button class="btn btn-primary" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars me-2"></i>Menü
+                    </button>
+                </div>
+                
+                <div class="p-4">
+                    <!-- Dashboard Section -->
+                    <div id="dashboard-section" class="section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-tachometer-alt me-2"></i> Dashboard</h2>
+                        </div>
+                        
+                        <div class="row mb-5">
+                            <div class="col-md-3 mb-4">
+                                <div class="dashboard-card">
+                                    <i class="fas fa-project-diagram text-primary"></i>
+                                    <h5>Projekte</h5>
+                                    <h3 class="text-primary" id="projects-count">0</h3>
+                                    <p class="text-muted mb-0">Aktiv: <span id="active-projects">0</span></p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-4" id="reports-card">
+                                <div class="dashboard-card">
+                                    <i class="fas fa-clipboard-list text-success"></i>
+                                    <h5>Berichte</h5>
+                                    <h3 class="text-success" id="reports-count">0</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-4" id="offers-card">
+                                <div class="dashboard-card">
+                                    <i class="fas fa-file-invoice text-warning"></i>
+                                    <h5>Angebote</h5>
+                                    <h3 class="text-warning" id="offers-count">0</h3>
+                                    <p class="text-muted mb-0">Offen: <span id="pending-offers">0</span></p>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-4">
+                                <div class="dashboard-card">
+                                    <i class="fas fa-file-invoice-dollar text-info"></i>
+                                    <h5>Umsatz gesamt</h5>
+                                    <h3 class="text-info" id="total-revenue">0,00 €</h3>
+                                    <p class="text-muted mb-0">Dieser Monat: <span id="monthly-revenue">0,00 €</span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-5">
+                            <div class="col-md-4 mb-4">
+                                <div class="dashboard-card">
+                                    <i class="fas fa-clock text-primary"></i>
+                                    <h5>Arbeitsstunden</h5>
+                                    <h3 class="text-primary" id="hours-this-week">0,00 h</h3>
+                                    <p class="text-muted mb-0">Gesamt: <span id="total-hours">0,00 h</span></p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <div class="dashboard-card">
+                                    <i class="fas fa-exclamation-circle text-danger"></i>
+                                    <h5>Offene Rechnungen</h5>
+                                    <h3 class="text-danger" id="open-invoices">0</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <div class="dashboard-card">
+                                    <i class="fas fa-chart-line text-success"></i>
+                                    <h5>Pipeline</h5>
+                                    <h3 class="text-success" id="pipeline-placeholder">–</h3>
+                                    <p class="text-muted mb-0">(Wird später erweitert)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-clock me-2"></i> Aktuelle Projekte</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="recent-projects">
+                                            <p class="text-muted">Keine Projekte vorhanden</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-chart-line me-2"></i> Letzte Aktivitäten</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="recent-activities">
+                                            <p class="text-muted">Keine Aktivitäten vorhanden</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tenant Settings Section -->
+                    <div id="tenant-settings-section" class="section" style="display: none;">
+                        <div class="row g-4 align-items-start">
+                            <div class="col-12 col-xl-7">
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0"><i class="fas fa-building me-2"></i> Firmenstammdaten</h5>
+                                        <button class="btn btn-sm btn-primary" id="tenantSettingsSaveBtn">
+                                            <i class="fas fa-save me-1"></i> Speichern
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <form id="tenantSettingsForm" class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label">Firmenname *</label>
+                                                <input type="text" class="form-control" id="settingsCompanyName" placeholder="z.B. Trockenbau Stuttgart GmbH" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Adresse</label>
+                                                <input type="text" class="form-control" id="settingsCompanyAddress" placeholder="Musterstraße 123, 70173 Stuttgart" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Telefon</label>
+                                                <input type="text" class="form-control" id="settingsCompanyPhone" placeholder="0711-123456" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Fax</label>
+                                                <input type="text" class="form-control" id="settingsCompanyFax" placeholder="0711-123457" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">E-Mail</label>
+                                                <input type="email" class="form-control" id="settingsCompanyEmail" placeholder="info@trockenbau-stuttgart.de" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Website</label>
+                                                <input type="text" class="form-control" id="settingsCompanyWebsite" placeholder="https://www.trockenbau-stuttgart.de" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Bank</label>
+                                                <input type="text" class="form-control" id="settingsBankName" placeholder="Musterbank Stuttgart" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">IBAN</label>
+                                                <input type="text" class="form-control" id="settingsBankIban" placeholder="DE12 3456 7890 1234 5678 90" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">BIC</label>
+                                                <input type="text" class="form-control" id="settingsBankBic" placeholder="GENODEF1S02" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Steuernummer</label>
+                                                <input type="text" class="form-control" id="settingsTaxNumber" placeholder="12/345/67890" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">USt-IdNr.</label>
+                                                <input type="text" class="form-control" id="settingsVatId" placeholder="DE123456789" oninput="updateTenantSettingsPreview()">
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-xl-5">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">
+                                        <h5 class="mb-0"><i class="fas fa-eye me-2"></i> Vorschau (Rechnungen)</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="tenantSettingsPreview" class="p-3 bg-light rounded border">
+                                            <div id="tenantSettingsPreviewContent" class="text-dark"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Projects Section -->
+                    <div id="projects-section" class="section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-project-diagram me-2"></i> Projekte</h2>
+                            <button class="btn btn-primary" onclick="showProjectModal()">
+                                <i class="fas fa-plus me-2"></i> Neues Projekt
+                            </button>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Kunde</th>
+                                                <th>Status</th>
+                                                <th>Startdatum</th>
+                                                <th>Enddatum</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="projects-table">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">Lade Projekte...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reports Section -->
+                    <div id="reports-section" class="section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-clipboard-list me-2"></i> Berichte</h2>
+                            <button class="btn btn-primary" onclick="showReportModal()" id="newReportBtn">
+                                <i class="fas fa-plus me-2"></i> Neuer Bericht
+                            </button>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Titel</th>
+                                                <th>Projekt</th>
+                                                <th>Datum</th>
+                                                <th>Status</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="reports-table">
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">Lade Berichte...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Offers Section -->
+                    <div id="offers-section" class="section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-file-invoice me-2"></i> Angebote</h2>
+                            <div>
+                                <button class="btn btn-primary" onclick="showOfferModal()">
+                                    <i class="fas fa-plus me-2"></i> Neues Angebot
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Titel</th>
+                                                <th>Kunde</th>
+                                                <th>Betrag</th>
+                                                <th>Status</th>
+                                                <th>Gültig bis</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="offers-table">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">Lade Angebote...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Auto Offers Section -->
+                    <div id="auto-offers-section" class="section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-magic me-2"></i> Automatische Angebote</h2>
+                            <button class="btn btn-success" onclick="createAutoOffer()">
+                                <i class="fas fa-magic me-2"></i> Neues Auto-Angebot
+                            </button>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="alert alert-info mb-3" style="color: #000 !important; background-color: #d1ecf1 !important; border-color: #bee5eb !important;">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong style="color: #000 !important;">Automatische Angebote</strong> werden durch KI generiert und hier gespeichert. 
+                                    Diese Angebote können Sie bearbeiten und als Rechnung umwandeln.
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Titel</th>
+                                                <th>Kunde</th>
+                                                <th>Betrag</th>
+                                                <th>Status</th>
+                                                <th>Erstellt am</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="auto-offers-table">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">Keine automatischen Angebote vorhanden</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Billing Section (Abonnement) -->
+                    <div id="billing-section" class="section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-credit-card me-2"></i> Abonnement & Billing</h2>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Abonnement-Status</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="billing-status-container">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                                        <p>Lade Abonnement-Daten...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Aktionen</h5>
+                            </div>
+                            <div class="card-body">
+                                <button class="btn btn-primary me-2" id="billing-checkout-btn">
+                                    <i class="fas fa-shopping-cart me-2"></i>Zur Kasse
+                                </button>
+                                <button class="btn btn-outline-secondary" id="billing-refresh-btn">
+                                    <i class="fas fa-sync-alt me-2"></i>Status aktualisieren
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employees Section -->
+                    <div id="settings-section" class="section" style="display: none;">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-users me-2"></i>Mitarbeiterverwaltung</h5>
+                                <div>
+                                    <button class="btn btn-primary me-2" onclick="showInviteModal()">
+                                        <i class="fas fa-paper-plane me-2"></i>Benutzer einladen
+                                    </button>
+                                    <button class="btn btn-success" onclick="showEmployeeModal()">
+                                        <i class="fas fa-plus me-2"></i>Neuer Mitarbeiter
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Benutzername</th>
+                                                <th>Position</th>
+                                                <th>Stundensatz</th>
+                                                <th>Telefon</th>
+                                                <th>E-Mail</th>
+                                                <th>Status</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="employees-table">
+                                            <tr>
+                                                <td colspan="8" class="text-center text-muted">Lade Mitarbeiter...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-envelope-open-text me-2"></i>Offene Einladungen</h5>
+                                <button class="btn btn-outline-primary btn-sm" onclick="loadInvitations()">
+                                    <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>E-Mail</th>
+                                                <th>Rolle</th>
+                                                <th>Einladender</th>
+                                                <th>Erstellt</th>
+                                                <th>Läuft ab</th>
+                                                <th>Status</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="invitations-table">
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted">Keine Einladungen geladen</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="userModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="userModalTitle">Benutzer verwalten</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <form id="userForm">
+                                        <input type="hidden" id="userId">
+                                        <div class="mb-3">
+                                            <label for="userFullName" class="form-label">Name</label>
+                                            <input type="text" class="form-control" id="userFullName" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="userUsername" class="form-label">Benutzername</label>
+                                            <input type="text" class="form-control" id="userUsername" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="userEmail" class="form-label">E-Mail</label>
+                                            <input type="email" class="form-control" id="userEmail" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="userRole" class="form-label">Rolle</label>
+                                            <select class="form-select" id="userRole">
+                                                <option value="mitarbeiter">Mitarbeiter</option>
+                                                <option value="buchhalter">Buchhalter</option>
+                                                <option value="admin">Admin</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="userPasswordGroup">
+                                            <label for="userPassword" class="form-label">Passwort</label>
+                                            <input type="password" class="form-control" id="userPassword" minlength="8">
+                                            <div class="form-text">Mindestens 8 Zeichen. Leer lassen, wenn nicht geändert.</div>
+                                        </div>
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" id="userIsActive" checked>
+                                            <label class="form-check-label" for="userIsActive">Benutzer ist aktiv</label>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                                    <button type="button" class="btn btn-primary" onclick="saveUser()">Speichern</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Time Tracking Section -->
+                    <div id="time-tracking-section" class="section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-clock me-2"></i> Stundenerfassung</h2>
+                        </div>
+                        
+                        <!-- Clock In/Out System -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h4 class="mb-4">Ein-/Austempeln</h4>
+                                        
+                                        <!-- Project Selection -->
+                                        <div class="mb-4">
+                                            <div class="mb-4">
+                                                <label for="clockProject" class="form-label">Projekt auswählen *</label>
+                                            </div>
+                                            <select class="form-select form-select-lg" id="clockProject" required onchange="updateProjectPreview()">
+                                                <option value="">Projekt auswählen...</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Status Display -->
+                                        <div id="clockStatus" class="mb-4">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-clock me-2"></i>
+                                                Nicht eingestempelt
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Clock Buttons -->
+                                        <div class="d-grid gap-2">
+                                            <button class="btn btn-success btn-lg" id="clockInBtn" onclick="clockIn()">
+                                                <i class="fas fa-play me-2"></i>Einstempeln
+                                            </button>
+                                            <button class="btn btn-danger btn-lg" id="clockOutBtn" onclick="clockOut()" style="display: none;">
+                                                <i class="fas fa-stop me-2"></i>Ausstempeln
+                                            </button>
+                                            <button class="btn btn-warning btn-lg" id="pauseBtn" onclick="pause()" disabled>
+                                                <i class="fas fa-pause me-2"></i>Pause
+                                            </button>
+                                        </div>
+                                        
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h4 class="mb-4">Aktuelle Arbeitszeit</h4>
+                                        <div class="display-4 text-primary mb-3" id="workTimeDisplay">00:00:00</div>
+                                        <div class="mb-3">
+                                            <strong>Projekt:</strong> <span id="currentProject">-</span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <strong>Eingestempelt:</strong> <span id="clockInTime">-</span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <strong>Pausenzeit:</strong> <span id="breakTime">0 Min</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Datum</th>
+                                                <th>Projekt</th>
+                                                <th>Einstempel</th>
+                                                <th>Austempel</th>
+                                                <th>Arbeitszeit</th>
+                                                <th>Pausen</th>
+                                                <th>Status</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="time-entries-table">
+                                            <tr>
+                                                <td colspan="8" class="text-center text-muted">Lade Stundeneinträge...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Invoices Section -->
+                    <div id="invoices-section" class="section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-file-invoice-dollar me-2"></i> Rechnungen</h2>
+                            <div>
+                                <button class="btn btn-success me-2" onclick="showAutoInvoiceModal()">
+                                    <i class="fas fa-magic me-2"></i> Auto-Rechnung
+                                </button>
+                                <button class="btn btn-primary" onclick="showInvoiceModal()">
+                                    <i class="fas fa-plus me-2"></i> Neue Rechnung
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Rechnungsnummer</th>
+                                                <th>Titel</th>
+                                                <th>Kunde</th>
+                                                <th>Betrag</th>
+                                                <th>Status</th>
+                                                <th>Rechnungsdatum</th>
+                                                <th>Fälligkeitsdatum</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="invoices-table">
+                                            <tr>
+                                                <td colspan="8" class="text-center text-muted">Lade Rechnungen...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settings-section" class="section" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-building me-2"></i> Firmenstammdaten</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="tenantSettingsForm" class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Firmenname *</label>
+                                        <input type="text" class="form-control" id="settingsCompanyName" placeholder="z.B. Trockenbau Stuttgart GmbH" oninput="updateTenantSettingsPreview()">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Adresse</label>
+                                        <input type="text" class="form-control" id="settingsCompanyAddress" placeholder="Musterstraße 123, 70173 Stuttgart">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Telefon</label>
+                                        <input type="text" class="form-control" id="settingsCompanyPhone" placeholder="0711-123456">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Fax</label>
+                                        <input type="text" class="form-control" id="settingsCompanyFax" placeholder="0711-123457">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">E-Mail</label>
+                                        <input type="email" class="form-control" id="settingsCompanyEmail" placeholder="info@trockenbau-stuttgart.de">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Website</label>
+                                        <input type="text" class="form-control" id="settingsCompanyWebsite" placeholder="https://www.trockenbau-stuttgart.de">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Bank</label>
+                                        <input type="text" class="form-control" id="settingsBankName" placeholder="Musterbank Stuttgart">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">IBAN</label>
+                                        <input type="text" class="form-control" id="settingsBankIban" placeholder="DE12 3456 7890 1234 5678 90">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">BIC</label>
+                                        <input type="text" class="form-control" id="settingsBankBic" placeholder="GENODEF1S02">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Steuernummer</label>
+                                        <input type="text" class="form-control" id="settingsTaxNumber" placeholder="12/345/67890">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">USt-IdNr.</label>
+                                        <input type="text" class="form-control" id="settingsVatId" placeholder="DE123456789">
+                                    </div>
+                                </form>
+                                
+                                <!-- Preview der Firmendaten -->
+                                <div id="tenantSettingsPreview" class="mt-4 p-3 bg-light rounded border">
+                                    <h6 class="text-muted mb-3"><i class="fas fa-eye me-2"></i>Vorschau (wie es auf Rechnungen erscheint)</h6>
+                                    <div id="tenantSettingsPreviewContent" class="text-dark">
+                                        <!-- Wird von JS gefüllt -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-users me-2"></i> Benutzer & Einladungen</h5>
+                                <div>
+                                    <button class="btn btn-primary me-2" onclick="showInviteModal()">
+                                        <i class="fas fa-paper-plane me-2"></i> Benutzer einladen
+                                    </button>
+                                    <button class="btn btn-success" onclick="showEmployeeModal()">
+                                        <i class="fas fa-plus me-2"></i> Neuer Benutzer
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="nav nav-pills mb-3" id="settingsTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="users-tab" data-bs-toggle="pill" data-bs-target="#tab-users" type="button" role="tab">Benutzer</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="invitations-tab" data-bs-toggle="pill" data-bs-target="#tab-invitations" type="button" role="tab">Einladungen</button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content" id="settingsTabContent">
+                                    <div class="tab-pane fade show active" id="tab-users" role="tabpanel">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Benutzername</th>
+                                                        <th>Position</th>
+                                                        <th>Stundensatz</th>
+                                                        <th>Telefon</th>
+                                                        <th>E-Mail</th>
+                                                        <th>Status</th>
+                                                        <th>Aktionen</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="employees-table">
+                                                    <tr>
+                                                        <td colspan="8" class="text-center text-muted">Lade Benutzer...</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="tab-invitations" role="tabpanel">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>E-Mail</th>
+                                                        <th>Rolle</th>
+                                                        <th>Einladender</th>
+                                                        <th>Erstellt</th>
+                                                        <th>Läuft ab</th>
+                                                        <th>Status</th>
+                                                        <th>Aktionen</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="invitations-table">
+                                                    <tr>
+                                                        <td colspan="7" class="text-center text-muted">Keine Einladungen vorhanden</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Modal -->
+    <div class="modal fade" id="projectModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="projectModalTitle">Neues Projekt</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="projectForm" data-project-id="">
+                        <div class="mb-3">
+                            <label for="projectName" class="form-label">Projektname *</label>
+                            <input type="text" class="form-control" id="projectName" name="projectName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="projectDescription" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="projectDescription" name="projectDescription" rows="3"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="projectClient" class="form-label">Kunde</label>
+                                    <input type="text" class="form-control" id="projectClient" name="projectClient">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="projectType" class="form-label">Projekttyp</label>
+                                    <select class="form-select" id="projectType" name="projectType">
+                                        <option value="">Typ auswählen...</option>
+                                        <option value="sanierung">Sanierung</option>
+                                        <option value="renovierung">Renovierung</option>
+                                        <option value="trockenbau">Trockenbau</option>
+                                        <option value="neubau">Neubau</option>
+                                        <option value="reparatur">Reparatur</option>
+                                        <option value="wartung">Wartung</option>
+                                        <option value="sonstiges">Sonstiges</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="projectStatus" class="form-label">Status</label>
+                                    <select class="form-select" id="projectStatus" name="projectStatus">
+                                        <option value="aktiv">Aktiv</option>
+                                        <option value="pausiert">Pausiert</option>
+                                        <option value="abgeschlossen">Abgeschlossen</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary">Speichern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div class="modal fade" id="reportModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reportModalTitle">Neuer Bericht</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reportForm" data-report-id="">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="reportProject" class="form-label">Projekt *</label>
+                                    <select class="form-select" id="reportProject" name="project_id" required>
+                                        <option value="">Projekt auswählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="reportDate" class="form-label">Berichtsdatum</label>
+                                    <input type="date" class="form-control" id="reportDate" name="report_date">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reportTitle" class="form-label">Titel *</label>
+                            <input type="text" class="form-control" id="reportTitle" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reportStatus" class="form-label">Status *</label>
+                            <select class="form-select" id="reportStatus" name="status" required>
+                                <option value="">Status auswählen...</option>
+                                <option value="In Bearbeitung">In Bearbeitung</option>
+                                <option value="Abgeschlossen">Abgeschlossen</option>
+                                <option value="Material benötigt">Material benötigt</option>
+                                <option value="Verzögerung">Verzögerung</option>
+                                <option value="Wartend auf Freigabe">Wartend auf Freigabe</option>
+                                <option value="Qualitätskontrolle">Qualitätskontrolle</option>
+                                <option value="Gipskarton montiert">Gipskarton montiert</option>
+                                <option value="Dämmung eingebaut">Dämmung eingebaut</option>
+                                <option value="Spachtelarbeiten">Spachtelarbeiten</option>
+                                <option value="Schleifarbeiten">Schleifarbeiten</option>
+                                <option value="Grundierung">Grundierung</option>
+                                <option value="Anstrich">Anstrich</option>
+                                <option value="Reinigung">Reinigung</option>
+                                <option value="Abnahme">Abnahme</option>
+                                <option value="Fehler aufgetreten">Fehler aufgetreten</option>
+                                <option value="Pausiert">Pausiert</option>
+                                <option value="Sonstiges">Sonstiges</option>
+                            </select>
+                            <div class="form-text">Wählen Sie den aktuellen Status des Berichts aus</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reportContent" class="form-label">Inhalt</label>
+                            <textarea class="form-control" id="reportContent" name="content" rows="4"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reportFiles" class="form-label">Fotos hochladen</label>
+                            <input type="file" class="form-control" id="reportFiles" name="files" multiple accept="image/*">
+                            <div class="form-text">Nur Bilddateien erlaubt: JPG, JPEG, PNG, GIF, WEBP</div>
+                        </div>
+                        <div id="uploadedFiles" class="mb-3" style="display: none;">
+                            <label class="form-label">Hochgeladene Dateien:</label>
+                            <div id="fileList" class="list-group"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary">Speichern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Offer Modal -->
+    <div class="modal fade" id="offerModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="offerModalTitle">Neues Angebot</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="offerForm" data-offer-id="">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="offerProject" class="form-label">Projekt *</label>
+                                    <select class="form-select" id="offerProject" name="project_id" required>
+                                        <option value="">Projekt auswählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="offerTitle" class="form-label">Titel *</label>
+                                    <input type="text" class="form-control" id="offerTitle" name="title" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="offerType" class="form-label">Projekttyp *</label>
+                                    <select class="form-select" id="offerType" name="type" required>
+                                        <option value="">Typ auswählen...</option>
+                                        <option value="sanierung">Sanierung</option>
+                                        <option value="renovierung">Renovierung</option>
+                                        <option value="trockenbau">Trockenbau</option>
+                                        <option value="neubau">Neubau</option>
+                                        <option value="reparatur">Reparatur</option>
+                                        <option value="wartung">Wartung</option>
+                                        <option value="sonstiges">Sonstiges</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="offerDescription" class="form-label">Leistungsbeschreibung *</label>
+                            <textarea class="form-control" id="offerDescription" name="description" rows="3" required placeholder="Detaillierte Beschreibung der zu erbringenden Leistungen..."></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="offerClient" class="form-label">Kunde/Firma *</label>
+                                    <input type="text" class="form-control" id="offerClient" name="client_name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="offerClientAddress" class="form-label">Kundenadresse *</label>
+                                    <textarea class="form-control" id="offerClientAddress" name="client_address" rows="2" required placeholder="Straße, PLZ, Ort"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="offerNetAmount" class="form-label">Nettobetrag (€) *</label>
+                                    <input type="number" class="form-control" id="offerNetAmount" name="net_amount" step="0.01" min="0" required onchange="calculateOfferTotal()">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="offerTaxRate" class="form-label">MwSt-Satz (%)</label>
+                                    <select class="form-select" id="offerTaxRate" name="tax_rate" onchange="calculateOfferTotal()">
+                                        <option value="19">19% (Standard)</option>
+                                        <option value="7">7% (ermäßigt)</option>
+                                        <option value="0">0% (steuerfrei)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="offerTotalAmount" class="form-label">Gesamtbetrag (€)</label>
+                                    <input type="number" class="form-control" id="offerTotalAmount" name="total_amount" step="0.01" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="offerValidUntil" class="form-label">Gültig bis</label>
+                                    <input type="date" class="form-control" id="offerValidUntil" name="valid_until">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="offerPaymentTerms" class="form-label">Zahlungsbedingungen</label>
+                                    <select class="form-select" id="offerPaymentTerms" name="payment_terms">
+                                        <option value="sofort">Sofort</option>
+                                        <option value="14_tage">14 Tage</option>
+                                        <option value="30_tage">30 Tage</option>
+                                        <option value="60_tage">60 Tage</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary" id="offerSubmitBtn">Speichern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Modal -->
+    <div class="modal fade" id="employeeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="employeeModalTitle">Neuer Mitarbeiter</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="employeeForm" data-employee-id="">
+                        <div class="mb-3">
+                            <label for="employeeName" class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="employeeName" name="name" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="employeePosition" class="form-label">Position</label>
+                                    <input type="text" class="form-control" id="employeePosition" name="position" placeholder="z.B. Trockenbauer, Geselle...">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="employeeHourlyRate" class="form-label">Stundensatz (€)</label>
+                                    <input type="number" class="form-control" id="employeeHourlyRate" name="hourly_rate" step="0.01" min="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="employeePhone" class="form-label">Telefon</label>
+                                    <input type="tel" class="form-control" id="employeePhone" name="phone">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="employeeEmail" class="form-label">E-Mail</label>
+                                    <input type="email" class="form-control" id="employeeEmail" name="email">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="employeeIsActive" name="is_active">
+                                <label class="form-check-label" for="employeeIsActive">
+                                    Aktiv
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary" id="employeeSubmitBtn">Speichern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time Entry Modal -->
+    <div class="modal fade" id="timeEntryModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="timeEntryModalTitle">Neue Stundenerfassung</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Validation Alerts -->
+                    <div id="timeEntryValidationAlerts"></div>
+                    
+                    <form id="timeEntryForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryProject" class="form-label">Projekt *</label>
+                                    <select class="form-select form-select-lg" id="timeEntryProject" name="project_id" required onchange="validateTimeEntry()">
+                                        <option value="">Projekt auswählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryEmployee" class="form-label">Mitarbeiter *</label>
+                                    <select class="form-select form-select-lg" id="timeEntryEmployee" name="employee_id" required onchange="validateTimeEntry()">
+                                        <option value="">Mitarbeiter auswählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryDate" class="form-label">Datum *</label>
+                                    <input type="date" class="form-control form-control-lg" id="timeEntryDate" name="work_date" required onchange="validateTimeEntry()">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryStartTime" class="form-label">Arbeitsbeginn</label>
+                                    <input type="time" class="form-control form-control-lg" id="timeEntryStartTime" name="clock_in" onchange="calculateWorkTime()">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryEndTime" class="form-label">Arbeitsende</label>
+                                    <input type="time" class="form-control form-control-lg" id="timeEntryEndTime" name="clock_out" onchange="calculateWorkTime()">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryBreakMinutes" class="form-label">Pausenzeit (Minuten)</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control form-control-lg" id="timeEntryBreakMinutes" name="total_break_minutes" min="0" max="480" value="0" onchange="calculateWorkTime()">
+                                        <span class="input-group-text">Min</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryHours" class="form-label">Arbeitszeit (Stunden) *</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control form-control-lg" id="timeEntryHours" name="hours_worked" step="0.01" min="0" max="24" required onchange="validateTimeEntry()" oninput="validateTimeEntry()">
+                                        <span class="input-group-text">h</span>
+                                    </div>
+                                    <div class="form-text">Wird automatisch berechnet</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timeEntryMinutes" class="form-label">Arbeitszeit (Minuten)</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control form-control-lg" id="timeEntryMinutes" min="0" max="59" value="0" onchange="validateTimeEntry()">
+                                        <span class="input-group-text">Min</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="timeEntryDescription" class="form-label">Arbeitsbeschreibung *</label>
+                            <textarea class="form-control form-control-lg" id="timeEntryDescription" name="description" rows="3" placeholder="Was wurde gemacht?" required onchange="validateTimeEntry()" oninput="validateTimeEntry()"></textarea>
+                            <div class="form-text">Beschreibung ist jetzt Pflichtfeld</div>
+                        </div>
+                        <!-- Stundensatz nur für Admin/Buchhalter sichtbar -->
+                        <div class="mb-3" id="hourlyRateSection" style="display: none;">
+                            <label for="timeEntryHourlyRate" class="form-label">Stundensatz (€)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control form-control-lg" id="timeEntryHourlyRate" name="hourly_rate" step="0.01" min="0" placeholder="Wird automatisch vom Mitarbeiter übernommen" onchange="validateTimeEntry()">
+                                <span class="input-group-text">€/h</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Cost Preview nur für Admin/Buchhalter sichtbar -->
+                        <div class="alert alert-info" id="costPreview" style="display: none;">
+                            <i class="fas fa-calculator me-2"></i>
+                            <strong>Geschätzte Kosten:</strong> <span id="estimatedCost">0,00 €</span>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary" id="saveTimeEntryBtn">
+                                <i class="fas fa-save me-2"></i>Speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Reason Modal -->
+    <div class="modal fade" id="editReasonModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bearbeitungsgrund angeben</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editReason" class="form-label">Grund für die Bearbeitung *</label>
+                        <textarea class="form-control" id="editReason" rows="3" placeholder="Warum wird dieser Stundeneintrag bearbeitet?" required></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Der Administrator wird über diese Bearbeitung benachrichtigt.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmEdit()">
+                        <i class="fas fa-edit me-2"></i>Bearbeiten bestätigen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Modal -->
+    <div class="modal fade" id="invoiceModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="invoiceModalTitle">Neue Rechnung</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="invoiceForm" data-invoice-id="">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="invoiceProject" class="form-label">Projekt *</label>
+                                    <select class="form-select" id="invoiceProject" name="project_id" required>
+                                        <option value="">Projekt auswählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="invoiceNumber" class="form-label">Rechnungsnummer *</label>
+                                    <input type="text" class="form-control" id="invoiceNumber" name="invoice_number" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="invoiceTitle" class="form-label">Titel *</label>
+                            <input type="text" class="form-control" id="invoiceTitle" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="invoiceDescription" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="invoiceDescription" name="description" rows="3"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="invoiceClientName" class="form-label">Kundenname *</label>
+                                    <input type="text" class="form-control" id="invoiceClientName" name="client_name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="invoiceClientAddress" class="form-label">Kundenadresse</label>
+                                    <textarea class="form-control" id="invoiceClientAddress" name="client_address" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="invoiceTotalAmount" class="form-label">Gesamtbetrag *</label>
+                                    <input type="number" class="form-control" id="invoiceTotalAmount" name="total_amount" step="0.01" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="invoiceCurrency" class="form-label">Währung</label>
+                                    <select class="form-select" id="invoiceCurrency" name="currency">
+                                        <option value="EUR">EUR</option>
+                                        <option value="USD">USD</option>
+                                        <option value="CHF">CHF</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="invoiceStatus" class="form-label">Status</label>
+                                    <select class="form-select" id="invoiceStatus" name="status">
+                                        <option value="entwurf">Entwurf</option>
+                                        <option value="versendet">Versendet</option>
+                                        <option value="bezahlt">Bezahlt</option>
+                                        <option value="überfällig">Überfällig</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary">Speichern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto Invoice Modal -->
+    <div class="modal fade" id="autoInvoiceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Automatische Rechnung erstellen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Wählen Sie ein Projekt aus, für das automatisch eine Rechnung aus den erfassten Stunden und Materialien erstellt werden soll.</p>
+                    <div class="mb-3">
+                        <label for="invoiceProjectSelect" class="form-label">Projekt *</label>
+                        <select class="form-select" id="invoiceProjectSelect" required>
+                            <option value="">Projekt auswählen...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="invoiceGenerationMethod" class="form-label">Generierungsmethode</label>
+                        <select class="form-select" id="invoiceGenerationMethod">
+                            <option value="hybrid">Hybrid (Empfohlen)</option>
+                            <option value="time_entries">Stundeneinträge</option>
+                            <option value="reports">Berichte</option>
+                            <option value="offers">Angebote</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="invoiceNumber" class="form-label">Rechnungsnummer</label>
+                        <input type="text" class="form-control" id="invoiceNumber" placeholder="R-2025-001">
+                    </div>
+                    <div class="mb-3">
+                        <label for="clientName" class="form-label">Kundenname</label>
+                        <input type="text" class="form-control" id="clientName" placeholder="Kundenname">
+                    </div>
+                    <div id="invoiceGenerationResult" style="display: none;"></div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Die Rechnung wird automatisch aus den erfassten Arbeitsstunden und Materialverbräuchen des Projekts erstellt.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-success" onclick="generateInvoice()">Rechnung berechnen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Time Entry Modal -->
+    <div class="modal fade" id="editTimeEntryModal" tabindex="-1" aria-labelledby="editTimeEntryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editTimeEntryModalLabel">
+                        <i class="fas fa-edit me-2"></i>Stundeneintrag bearbeiten
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editTimeEntryForm">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editWorkDate" class="form-label">Arbeitsdatum *</label>
+                                    <input type="date" class="form-control" id="editWorkDate" name="work_date" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editProject" class="form-label">Projekt *</label>
+                                    <select class="form-select" id="editProject" name="project_id" required>
+                                        <option value="">Projekt auswählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editClockIn" class="form-label">Einstempeln</label>
+                                    <input type="time" class="form-control" id="editClockIn" name="clock_in">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editClockOut" class="form-label">Ausstempeln</label>
+                                    <input type="time" class="form-control" id="editClockOut" name="clock_out">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editBreakStart" class="form-label">Pause Start</label>
+                                    <input type="time" class="form-control" id="editBreakStart" name="break_start">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editBreakEnd" class="form-label">Pause Ende</label>
+                                    <input type="time" class="form-control" id="editBreakEnd" name="break_end">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editHoursWorked" class="form-label">Gearbeitete Stunden *</label>
+                                    <input type="number" class="form-control" id="editHoursWorked" name="hours_worked" step="0.25" min="0" max="24" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editHourlyRate" class="form-label">Stundensatz (€)</label>
+                                    <input type="number" class="form-control" id="editHourlyRate" name="hourly_rate" step="0.01" min="0">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="editDescription" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="editDescription" name="description" rows="3" placeholder="Arbeitsbeschreibung..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Abbrechen
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Speichern
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Spinner -->
+    <div class="loading position-fixed top-50 start-50 translate-middle" id="loadingSpinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Lädt...</span>
+        </div>
+    </div>
+
+    <!-- Alert Container -->
+    <div id="alertContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;"></div>
+
+    <!-- Invitation Modal -->
+    <div class="modal fade" id="inviteModal" tabindex="-1" aria-labelledby="inviteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="inviteModalLabel">
+                        <i class="fas fa-user-plus me-2"></i>Benutzer einladen
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="inviteForm">
+                        <div class="mb-3">
+                            <label for="inviteEmail" class="form-label">E-Mail-Adresse</label>
+                            <input type="email" class="form-control" id="inviteEmail" placeholder="name@example.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="inviteRole" class="form-label">Rolle</label>
+                            <select class="form-select" id="inviteRole">
+                                <option value="mitarbeiter">Mitarbeiter</option>
+                                <option value="buchhalter">Buchhalter</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="inviteTtl" class="form-label">Ablauf (Tage)</label>
+                            <input type="number" class="form-control" id="inviteTtl" min="1" max="30" value="7">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="submitInvitation()">
+                        <i class="fas fa-paper-plane me-2"></i>Einladung senden
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invitation Accept Modal (Token anzeigen) -->
+    <div class="modal fade" id="inviteTokenModal" tabindex="-1" aria-labelledby="inviteTokenModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="inviteTokenModalLabel">
+                        Einladung erstellt
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Teile diesen Link mit dem eingeladenen Benutzer:</p>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="inviteTokenLink" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyInviteLink()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-2" id="inviteExpiresLabel"></small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logo Info Modal -->
+    <div class="modal fade" id="logoInfoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-image me-2"></i> Logo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">
+                        Die Logo-Verwaltung ist derzeit nicht verfügbar.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logo Management Modal -->
+    <div class="modal fade" id="logoManagementModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-image me-2"></i> Logo-Verwaltung</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row gy-4">
+                        <div class="col-lg-6">
+                            <h6 class="text-muted mb-3">Aktuelles Logo</h6>
+                            <div class="border rounded p-3 bg-light" id="currentLogoContainer">
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-image fa-3x mb-3"></i>
+                                    <p>Kein Logo hochgeladen</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <h6 class="text-muted mb-3">Neues Logo hochladen</h6>
+                            <form id="logoUploadForm" class="border rounded p-3">
+                                <div class="mb-3">
+                                    <label for="logoFile" class="form-label">Logo-Datei (PNG, JPG, WEBP, GIF, SVG)</label>
+                                    <input type="file" class="form-control" id="logoFile" accept="image/*" required>
+                                </div>
+                                <div class="alert alert-info small" role="alert">
+                                    <i class="fas fa-info-circle me-2"></i>Das neue Logo ersetzt automatisch das bisher aktive Logo.
+                                </div>
+                                <div class="d-flex justify-content-end">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-upload me-2"></i>Logo hochladen
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div>
+                        <h6 class="text-muted mb-3">Logo-Historie</h6>
+                        <div id="logoHistoryContainer" class="border rounded p-3 bg-light">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-history fa-2x mb-2"></i>
+                                <p>Noch keine Logos hochgeladen.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="static/app.js"></script>
+</body>
+</html>
+
+

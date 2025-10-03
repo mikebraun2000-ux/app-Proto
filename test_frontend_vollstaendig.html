@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Vollständiger Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { margin-bottom: 20px; color: #333; }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .test-card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .test-card h3 {
+            margin-bottom: 15px;
+            color: #555;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 16px;
+            margin: 4px 0;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+        .result.show { display: block; }
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .result.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Frontend Vollständiger Test</h1>
+        
+        <div class="test-grid">
+            <!-- Login Test -->
+            <div class="test-card">
+                <h3>1. Authentifizierung</h3>
+                <button class="btn-primary" onclick="testLogin()">Login Test</button>
+                <button class="btn-success" onclick="testCurrentUser()">User Info</button>
+                <div id="auth-result" class="result"></div>
+            </div>
+
+            <!-- Projekte -->
+            <div class="test-card">
+                <h3>2. Projekte</h3>
+                <button class="btn-primary" onclick="testProjects()">Projekte Laden</button>
+                <div id="projects-result" class="result"></div>
+            </div>
+
+            <!-- Mitarbeiter -->
+            <div class="test-card">
+                <h3>3. Mitarbeiter</h3>
+                <button class="btn-primary" onclick="testEmployees()">Mitarbeiter Laden</button>
+                <div id="employees-result" class="result"></div>
+            </div>
+
+            <!-- Angebote -->
+            <div class="test-card">
+                <h3>4. Angebote</h3>
+                <button class="btn-primary" onclick="testOffers()">Angebote Laden</button>
+                <div id="offers-result" class="result"></div>
+            </div>
+
+            <!-- Rechnungen -->
+            <div class="test-card">
+                <h3>5. Rechnungen</h3>
+                <button class="btn-primary" onclick="testInvoices()">Rechnungen Laden</button>
+                <div id="invoices-result" class="result"></div>
+            </div>
+
+            <!-- Berichte -->
+            <div class="test-card">
+                <h3>6. Berichte</h3>
+                <button class="btn-primary" onclick="testReports()">Berichte Laden</button>
+                <div id="reports-result" class="result"></div>
+            </div>
+
+            <!-- Stundenerfassung -->
+            <div class="test-card">
+                <h3>7. Stundenerfassung</h3>
+                <button class="btn-primary" onclick="testTimeEntries()">Stunden Laden</button>
+                <div id="time-result" class="result"></div>
+            </div>
+
+            <!-- Benutzer -->
+            <div class="test-card">
+                <h3>8. Benutzerverwaltung</h3>
+                <button class="btn-primary" onclick="testUsers()">Benutzer Laden</button>
+                <div id="users-result" class="result"></div>
+            </div>
+
+            <!-- Tenant Settings -->
+            <div class="test-card">
+                <h3>9. Tenant Einstellungen</h3>
+                <button class="btn-primary" onclick="testTenantSettings()">Settings Laden</button>
+                <div id="tenant-result" class="result"></div>
+            </div>
+        </div>
+
+        <button class="btn-success" style="width: 100%; font-size: 16px; padding: 15px;" onclick="runAllTests()">
+            🚀 ALLE TESTS AUSFÜHREN
+        </button>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+        Bereit zum Testen
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        let authToken = localStorage.getItem('access_token');
+        let testResults = { success: 0, failed: 0 };
+
+        function updateStatus(message) {
+            document.getElementById('statusBar').textContent = message;
+        }
+
+        function showResult(containerId, message, type = 'success', data = null) {
+            const result = document.getElementById(containerId);
+            result.className = `result show ${type}`;
+            result.innerHTML = message;
+            if (data) {
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(data, null, 2).substring(0, 300) + '...';
+                result.appendChild(pre);
+            }
+        }
+
+        async function testLogin() {
+            updateStatus('Teste Login...');
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('access_token', authToken);
+                    showResult('auth-result', `✓ Login erfolgreich!`, 'success');
+                    testResults.success++;
+                    updateStatus('Login erfolgreich');
+                } else {
+                    showResult('auth-result', `✗ Login fehlgeschlagen: ${response.status}`, 'error');
+                    testResults.failed++;
+                    updateStatus('Login fehlgeschlagen');
+                }
+            } catch (error) {
+                showResult('auth-result', `✗ Fehler: ${error.message}`, 'error');
+                testResults.failed++;
+                updateStatus('Login Fehler');
+            }
+        }
+
+        async function testCurrentUser() {
+            if (!authToken) {
+                showResult('auth-result', '✗ Bitte erst einloggen!', 'warning');
+                return;
+            }
+
+            updateStatus('Lade Benutzerdaten...');
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('auth-result', `✓ User: ${data.user.full_name} (${data.user.role})`, 'success', data);
+                    testResults.success++;
+                    updateStatus('Benutzerdaten geladen');
+                } else {
+                    showResult('auth-result', `✗ Fehler: ${response.status}`, 'error');
+                    testResults.failed++;
+                }
+            } catch (error) {
+                showResult('auth-result', `✗ Fehler: ${error.message}`, 'error');
+                testResults.failed++;
+            }
+        }
+
+        async function testEndpoint(endpoint, resultId, name) {
+            if (!authToken) {
+                showResult(resultId, '✗ Bitte erst einloggen!', 'warning');
+                return false;
+            }
+
+            updateStatus(`Teste ${name}...`);
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = Array.isArray(data) ? data.length : 'Objekt';
+                    showResult(resultId, `✓ ${name}: ${count} Einträge geladen`, 'success', Array.isArray(data) ? data[0] : data);
+                    testResults.success++;
+                    updateStatus(`${name} erfolgreich`);
+                    return true;
+                } else {
+                    showResult(resultId, `✗ Fehler: ${response.status}`, 'error');
+                    testResults.failed++;
+                    updateStatus(`${name} fehlgeschlagen`);
+                    return false;
+                }
+            } catch (error) {
+                showResult(resultId, `✗ Fehler: ${error.message}`, 'error');
+                testResults.failed++;
+                return false;
+            }
+        }
+
+        async function testProjects() {
+            return await testEndpoint('/projects', 'projects-result', 'Projekte');
+        }
+
+        async function testEmployees() {
+            return await testEndpoint('/employees', 'employees-result', 'Mitarbeiter');
+        }
+
+        async function testOffers() {
+            return await testEndpoint('/offers', 'offers-result', 'Angebote');
+        }
+
+        async function testInvoices() {
+            return await testEndpoint('/invoices', 'invoices-result', 'Rechnungen');
+        }
+
+        async function testReports() {
+            return await testEndpoint('/reports', 'reports-result', 'Berichte');
+        }
+
+        async function testTimeEntries() {
+            return await testEndpoint('/time-entries', 'time-result', 'Stundenerfassung');
+        }
+
+        async function testUsers() {
+            return await testEndpoint('/auth/users', 'users-result', 'Benutzer');
+        }
+
+        async function testTenantSettings() {
+            return await testEndpoint('/auth/tenant/settings', 'tenant-result', 'Tenant Settings');
+        }
+
+        async function runAllTests() {
+            testResults = { success: 0, failed: 0 };
+            updateStatus('Starte vollständigen Test...');
+
+            // Clear all results
+            document.querySelectorAll('.result').forEach(r => r.className = 'result');
+
+            // Run tests sequentially
+            await testLogin();
+            await new Promise(r => setTimeout(r, 300));
+            await testCurrentUser();
+            await new Promise(r => setTimeout(r, 300));
+            await testProjects();
+            await new Promise(r => setTimeout(r, 300));
+            await testEmployees();
+            await new Promise(r => setTimeout(r, 300));
+            await testOffers();
+            await new Promise(r => setTimeout(r, 300));
+            await testInvoices();
+            await new Promise(r => setTimeout(r, 300));
+            await testReports();
+            await new Promise(r => setTimeout(r, 300));
+            await testTimeEntries();
+            await new Promise(r => setTimeout(r, 300));
+            await testUsers();
+            await new Promise(r => setTimeout(r, 300));
+            await testTenantSettings();
+
+            // Show results
+            updateStatus(`✓ Test abgeschlossen: ${testResults.success} erfolgreich, ${testResults.failed} fehlgeschlagen`);
+        }
+
+        // Auto-check token on load
+        window.onload = function() {
+            if (authToken) {
+                updateStatus(`Token vorhanden: ${authToken.substring(0, 20)}...`);
+            } else {
+                updateStatus('Kein Token - bitte erst einloggen');
+            }
+        };
+    </script>
+</body>
+</html>
+
