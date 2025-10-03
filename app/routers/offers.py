@@ -15,6 +15,7 @@ from ..models import Offer, Project, Invoice
 from ..schemas import OfferCreate, OfferUpdate, Offer as OfferSchema, OfferItem, InvoiceCreate, OfferGenerationRequest
 from ..utils.pdf_utils import create_offer_pdf
 from ..auth import get_current_user, require_buchhalter_or_admin
+from ..utils.tenant_scoping import add_tenant_filter, ensure_tenant_access, set_tenant_on_model
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -23,8 +24,8 @@ router = APIRouter(prefix="/offers", tags=["offers"])
 @router.get("/", response_model=List[OfferSchema])
 def get_offers(
     auto_generated: Optional[bool] = None,
-    session: Session = Depends(get_session), 
-    current_user = Depends(get_current_user)
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user)
 ):
     """
     Alle Angebote abrufen, optional gefiltert nach auto_generated.
@@ -36,8 +37,8 @@ def get_offers(
         List[OfferSchema]: Liste der Angebote
     """
     try:
-        statement = select(Offer)
-        
+        statement = add_tenant_filter(select(Offer), Offer, current_user.tenant_id)
+
         # Filter anwenden falls angegeben
         if auto_generated is not None:
             statement = statement.where(Offer.auto_generated == auto_generated)
@@ -59,7 +60,11 @@ def get_offers(
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Angebote: {str(e)}")
 
 @router.post("/", response_model=OfferSchema)
-def create_offer(offer: OfferCreate, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def create_offer(
+    offer: OfferCreate,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Neues Angebot erstellen.
     
@@ -76,8 +81,7 @@ def create_offer(offer: OfferCreate, session: Session = Depends(get_session), cu
     try:
         # Prüfen ob das Projekt existiert
         project = session.get(Project, offer.project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
+        ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
         
         # Items als JSON-String speichern
         items_json = json.dumps(offer.items) if offer.items else "[]"
@@ -110,6 +114,7 @@ def create_offer(offer: OfferCreate, session: Session = Depends(get_session), cu
             status=getattr(offer, 'status', 'entwurf'),
             auto_generated=getattr(offer, 'auto_generated', False)
         )
+        set_tenant_on_model(db_offer, current_user.tenant_id)
         
         session.add(db_offer)
         session.commit()
@@ -127,7 +132,7 @@ def create_offer(offer: OfferCreate, session: Session = Depends(get_session), cu
 def create_auto_offer(
     request: OfferGenerationRequest,
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin)
+    current_user=Depends(require_buchhalter_or_admin)
 ):
     """
     Erstellt ein automatisches Angebot auf Basis der Projektdaten.
@@ -142,8 +147,7 @@ def create_auto_offer(
     """
     try:
         project = session.get(Project, request.project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
+        ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
 
         # Gültigkeit: 30 Tage ab heute
         today = datetime.utcnow()
@@ -210,6 +214,7 @@ def create_auto_offer(
             status="entwurf",
             auto_generated=True  # ⚠️ WICHTIG: Markiert als automatisch generiert
         )
+        set_tenant_on_model(db_offer, current_user.tenant_id)
 
         session.add(db_offer)
         session.commit()
@@ -223,7 +228,11 @@ def create_auto_offer(
         raise HTTPException(status_code=500, detail=f"Fehler beim automatischen Angebot: {str(e)}")
 
 @router.get("/{offer_id}", response_model=OfferSchema)
-def get_offer(offer_id: int, session: Session = Depends(get_session)):
+def get_offer(
+    offer_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Einzelnes Angebot anhand der ID abrufen.
     
@@ -238,8 +247,7 @@ def get_offer(offer_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Angebot nicht gefunden wird
     """
     offer = session.get(Offer, offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail="Angebot nicht gefunden")
+    offer = ensure_tenant_access(offer, current_user.tenant_id, not_found_detail="Angebot nicht gefunden")
     return offer
 
 @router.put("/{offer_id}", response_model=OfferSchema)
@@ -247,7 +255,7 @@ def update_offer(
     offer_id: int, 
     offer_update: OfferUpdate, 
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Angebot aktualisieren.
@@ -264,8 +272,7 @@ def update_offer(
         HTTPException: Wenn Angebot nicht gefunden wird
     """
     offer = session.get(Offer, offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail="Angebot nicht gefunden")
+    offer = ensure_tenant_access(offer, current_user.tenant_id, not_found_detail="Angebot nicht gefunden")
     
     # Nur gesetzte Felder aktualisieren
     offer_data = offer_update.model_dump(exclude_unset=True)
@@ -301,7 +308,11 @@ def update_offer(
     return offer
 
 @router.delete("/{offer_id}")
-def delete_offer(offer_id: int, session: Session = Depends(get_session)):
+def delete_offer(
+    offer_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Angebot löschen.
     
@@ -316,15 +327,18 @@ def delete_offer(offer_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Angebot nicht gefunden wird
     """
     offer = session.get(Offer, offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail="Angebot nicht gefunden")
+    offer = ensure_tenant_access(offer, current_user.tenant_id, not_found_detail="Angebot nicht gefunden")
     
     session.delete(offer)
     session.commit()
     return {"message": "Angebot erfolgreich gelöscht"}
 
 @router.post("/{offer_id}/pdf")
-def generate_offer_pdf(offer_id: int, session: Session = Depends(get_session)):
+def generate_offer_pdf(
+    offer_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     PDF-Angebot generieren und als Datei zurückgeben.
     
@@ -339,8 +353,7 @@ def generate_offer_pdf(offer_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Angebot nicht gefunden wird
     """
     offer = session.get(Offer, offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail="Angebot nicht gefunden")
+    offer = ensure_tenant_access(offer, current_user.tenant_id, not_found_detail="Angebot nicht gefunden")
     
     try:
         # Angebotsdaten für PDF vorbereiten
@@ -377,7 +390,11 @@ def generate_offer_pdf(offer_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=500, detail=f"Fehler beim Generieren des PDFs: {str(e)}")
 
 @router.get("/project/{project_id}", response_model=List[OfferSchema])
-def get_offers_by_project(project_id: int, session: Session = Depends(get_session)):
+def get_offers_by_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Alle Angebote eines Projekts abrufen.
     
@@ -393,10 +410,9 @@ def get_offers_by_project(project_id: int, session: Session = Depends(get_sessio
     """
     # Prüfen ob das Projekt existiert
     project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
-    
-    statement = select(Offer).where(Offer.project_id == project_id)
+    ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
+
+    statement = add_tenant_filter(select(Offer).where(Offer.project_id == project_id), Offer, current_user.tenant_id)
     offers = session.exec(statement).all()
     return offers
 
@@ -404,7 +420,7 @@ def get_offers_by_project(project_id: int, session: Session = Depends(get_sessio
 def create_invoice_from_offer(
     offer_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Erstellt eine Rechnung aus einem Angebot.
@@ -422,12 +438,11 @@ def create_invoice_from_offer(
     """
     # Angebot abrufen
     offer = session.get(Offer, offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail="Angebot nicht gefunden")
+    offer = ensure_tenant_access(offer, current_user.tenant_id, not_found_detail="Angebot nicht gefunden")
     
     # Prüfen ob bereits eine Rechnung für dieses Angebot existiert
     existing_invoice = session.exec(
-        select(Invoice).where(Invoice.offer_id == offer_id)
+        add_tenant_filter(select(Invoice).where(Invoice.offer_id == offer_id), Invoice, current_user.tenant_id)
     ).first()
     
     if existing_invoice:
@@ -458,6 +473,7 @@ def create_invoice_from_offer(
         
         # Rechnung in Datenbank speichern
         db_invoice = Invoice(**invoice_data)
+        set_tenant_on_model(db_invoice, current_user.tenant_id)
         session.add(db_invoice)
         session.commit()
         session.refresh(db_invoice)

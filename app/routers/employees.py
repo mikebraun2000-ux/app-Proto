@@ -10,16 +10,18 @@ from ..database import get_session
 from ..models import Employee
 from ..schemas import EmployeeCreate, EmployeeUpdate, Employee as EmployeeSchema
 from ..auth import get_current_user, require_admin
+from ..utils.tenant_scoping import add_tenant_filter, ensure_tenant_access, set_tenant_on_model
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
 @router.get("/", response_model=List[EmployeeSchema])
-def get_employees(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_employees(session: Session = Depends(get_session), current_user=Depends(get_current_user)):
     """
     Alle Mitarbeiter des Tenants abrufen.
     """
     try:
-        statement = select(Employee).where(Employee.tenant_id == current_user.tenant_id, Employee.is_active == True)
+        statement = add_tenant_filter(select(Employee), Employee, current_user.tenant_id)
+        statement = statement.where(Employee.is_active == True)
         employees = session.exec(statement).all()
 
         result = []
@@ -43,7 +45,11 @@ def get_employees(session: Session = Depends(get_session), current_user = Depend
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Mitarbeiter: {str(e)}")
 
 @router.post("/", response_model=EmployeeSchema)
-def create_employee(employee: EmployeeCreate, session: Session = Depends(get_session)):
+def create_employee(
+    employee: EmployeeCreate,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Neuen Mitarbeiter erstellen.
     
@@ -54,14 +60,20 @@ def create_employee(employee: EmployeeCreate, session: Session = Depends(get_ses
     Returns:
         EmployeeSchema: Erstellter Mitarbeiter
     """
-    db_employee = Employee.model_validate(employee)
+    employee_data = employee.model_dump()
+    db_employee = Employee(**employee_data)
+    set_tenant_on_model(db_employee, current_user.tenant_id)
     session.add(db_employee)
     session.commit()
     session.refresh(db_employee)
     return db_employee
 
 @router.get("/{employee_id}", response_model=EmployeeSchema)
-def get_employee(employee_id: int, session: Session = Depends(get_session)):
+def get_employee(
+    employee_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Einzelnen Mitarbeiter anhand der ID abrufen.
     
@@ -76,15 +88,15 @@ def get_employee(employee_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Mitarbeiter nicht gefunden wird
     """
     employee = session.get(Employee, employee_id)
-    if not employee:
-        raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden")
+    employee = ensure_tenant_access(employee, current_user.tenant_id, not_found_detail="Mitarbeiter nicht gefunden")
     return employee
 
 @router.put("/{employee_id}", response_model=EmployeeSchema)
 def update_employee(
     employee_id: int, 
     employee_update: EmployeeUpdate, 
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
 ):
     """
     Mitarbeiter aktualisieren.
@@ -101,8 +113,7 @@ def update_employee(
         HTTPException: Wenn Mitarbeiter nicht gefunden wird
     """
     employee = session.get(Employee, employee_id)
-    if not employee:
-        raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden")
+    employee = ensure_tenant_access(employee, current_user.tenant_id, not_found_detail="Mitarbeiter nicht gefunden")
     
     # Nur gesetzte Felder aktualisieren
     employee_data = employee_update.model_dump(exclude_unset=True)
@@ -115,7 +126,11 @@ def update_employee(
     return employee
 
 @router.delete("/{employee_id}")
-def delete_employee(employee_id: int, session: Session = Depends(get_session)):
+def delete_employee(
+    employee_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Mitarbeiter deaktivieren (soft delete).
     
@@ -130,8 +145,7 @@ def delete_employee(employee_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Mitarbeiter nicht gefunden wird
     """
     employee = session.get(Employee, employee_id)
-    if not employee:
-        raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden")
+    employee = ensure_tenant_access(employee, current_user.tenant_id, not_found_detail="Mitarbeiter nicht gefunden")
     
     employee.is_active = False
     session.add(employee)

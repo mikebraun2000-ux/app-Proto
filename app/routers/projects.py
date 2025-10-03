@@ -11,18 +11,19 @@ from ..database import get_session
 from ..models import Project
 from ..schemas import ProjectCreate, ProjectUpdate, Project as ProjectSchema
 from ..auth import get_current_user, require_buchhalter_or_admin
+from ..utils.tenant_scoping import add_tenant_filter, ensure_tenant_access, set_tenant_on_model
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 @router.get("/", response_model=List[ProjectSchema])
-def get_projects(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_projects(session: Session = Depends(get_session), current_user=Depends(get_current_user)):
     """
     Alle Projekte abrufen.
     
     Returns:
         List[ProjectSchema]: Liste aller Projekte
     """
-    statement = select(Project)
+    statement = add_tenant_filter(select(Project), Project, current_user.tenant_id)
     projects = session.exec(statement).all()
     
     # Manuelle Serialisierung für name mapping
@@ -51,7 +52,11 @@ def get_projects(session: Session = Depends(get_session), current_user = Depends
     return result
 
 @router.post("/", response_model=ProjectSchema)
-def create_project(project: ProjectCreate, session: Session = Depends(get_session)):
+def create_project(
+    project: ProjectCreate,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Neues Projekt erstellen.
     
@@ -62,14 +67,20 @@ def create_project(project: ProjectCreate, session: Session = Depends(get_sessio
     Returns:
         ProjectSchema: Erstelltes Projekt
     """
-    db_project = Project.model_validate(project)
+    project_data = project.model_dump()
+    db_project = Project(**project_data)
+    set_tenant_on_model(db_project, current_user.tenant_id)
     session.add(db_project)
     session.commit()
     session.refresh(db_project)
     return db_project
 
 @router.get("/{project_id}", response_model=ProjectSchema)
-def get_project(project_id: int, session: Session = Depends(get_session)):
+def get_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Einzelnes Projekt anhand der ID abrufen.
     
@@ -84,15 +95,15 @@ def get_project(project_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Projekt nicht gefunden wird
     """
     project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
+    project = ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
     return project
 
 @router.put("/{project_id}", response_model=ProjectSchema)
 def update_project(
     project_id: int, 
     project_update: ProjectUpdate, 
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
 ):
     """
     Projekt aktualisieren.
@@ -109,8 +120,7 @@ def update_project(
         HTTPException: Wenn Projekt nicht gefunden wird
     """
     project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
+    project = ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
     
     # Nur gesetzte Felder aktualisieren
     project_data = project_update.model_dump(exclude_unset=True)
@@ -126,7 +136,7 @@ def update_project(
 def delete_project(
     project_id: int, 
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin)
+    current_user=Depends(require_buchhalter_or_admin)
 ):
     """
     Projekt löschen mit allen verknüpften Daten (nur für Buchhalter und Admin).
@@ -145,8 +155,7 @@ def delete_project(
     try:
         # Prüfe ob Projekt existiert
         project = session.get(Project, project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
+        project = ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
         
         project_name = project.name
         
@@ -156,23 +165,44 @@ def delete_project(
         import os
         
         # Zähle verknüpfte Berichte
-        reports = session.exec(select(Report).where(Report.project_id == project_id)).all()
+        report_statement = add_tenant_filter(select(Report).where(Report.project_id == project_id), Report, current_user.tenant_id)
+        reports = session.exec(report_statement).all()
         reports_count = len(reports)
         
         # Zähle verknüpfte Stundeneinträge
-        time_entries = session.exec(select(TimeEntry).where(TimeEntry.project_id == project_id)).all()
+        time_entry_statement = add_tenant_filter(
+            select(TimeEntry).where(TimeEntry.project_id == project_id),
+            TimeEntry,
+            current_user.tenant_id,
+        )
+        time_entries = session.exec(time_entry_statement).all()
         time_entries_count = len(time_entries)
         
         # Zähle verknüpfte Angebote
-        offers = session.exec(select(Offer).where(Offer.project_id == project_id)).all()
+        offer_statement = add_tenant_filter(
+            select(Offer).where(Offer.project_id == project_id),
+            Offer,
+            current_user.tenant_id,
+        )
+        offers = session.exec(offer_statement).all()
         offers_count = len(offers)
         
         # Zähle verknüpfte Rechnungen
-        invoices = session.exec(select(Invoice).where(Invoice.project_id == project_id)).all()
+        invoice_statement = add_tenant_filter(
+            select(Invoice).where(Invoice.project_id == project_id),
+            Invoice,
+            current_user.tenant_id,
+        )
+        invoices = session.exec(invoice_statement).all()
         invoices_count = len(invoices)
         
         # Zähle verknüpfte Projektbilder
-        project_images = session.exec(select(ProjectImage).where(ProjectImage.project_id == project_id)).all()
+        project_image_statement = add_tenant_filter(
+            select(ProjectImage).where(ProjectImage.project_id == project_id),
+            ProjectImage,
+            current_user.tenant_id,
+        )
+        project_images = session.exec(project_image_statement).all()
         project_images_count = len(project_images)
         
         # Lösche alle verknüpften Daten

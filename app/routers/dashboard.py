@@ -4,12 +4,15 @@ Bietet aggregierte Statistiken und Übersichten.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select, func
-from typing import Dict, Any
 from datetime import datetime, timedelta
-from ..database import get_session
-from ..models import Project, Invoice, TimeEntry, Report, Offer
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session, select, func
+
 from ..auth import get_current_user
+from ..database import get_session
+from ..models import Invoice, Offer, Project, Report, TimeEntry
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -25,52 +28,66 @@ async def get_dashboard_data(
         Dict mit verschiedenen Statistiken
     """
     try:
+        tenant_id = current_user.tenant_id
+
+        def scalar(query):
+            value = session.exec(query).one()
+            return value if value is not None else 0
+
         # Projekte
-        total_projects = session.exec(select(func.count(Project.id))).one()
-        active_projects = session.exec(
-            select(func.count(Project.id)).where(Project.status == "aktiv")
-        ).one()
-        
+        total_projects = scalar(select(func.count()).select_from(Project).where(Project.tenant_id == tenant_id))
+        active_projects = scalar(
+            select(func.count()).select_from(Project).where(
+                Project.tenant_id == tenant_id, Project.status == "aktiv"
+            )
+        )
+
         # Rechnungen
-        total_invoices = session.exec(select(func.count(Invoice.id))).one()
-        total_revenue = session.exec(select(func.sum(Invoice.total_amount))).one() or 0
-        
+        total_invoices = scalar(select(func.count()).select_from(Invoice).where(Invoice.tenant_id == tenant_id))
+        total_revenue = scalar(select(func.sum(Invoice.total_amount)).where(Invoice.tenant_id == tenant_id))
+
         # Offene Rechnungen (bezahlt == False)
-        open_invoices = session.exec(
-            select(func.count(Invoice.id)).where(Invoice.status != "bezahlt")
-        ).one()
-        
+        open_invoices = scalar(
+            select(func.count()).select_from(Invoice).where(
+                Invoice.tenant_id == tenant_id, Invoice.status != "bezahlt"
+            )
+        )
+
         # Angebote
-        total_offers = session.exec(select(func.count(Offer.id))).one()
-        pending_offers = session.exec(
-            select(func.count(Offer.id)).where(Offer.status == "offen")
-        ).one()
-        
+        total_offers = scalar(select(func.count()).select_from(Offer).where(Offer.tenant_id == tenant_id))
+        pending_offers = scalar(
+            select(func.count()).select_from(Offer).where(
+                Offer.tenant_id == tenant_id, Offer.status == "offen"
+            )
+        )
+
         # Berichte
-        total_reports = session.exec(select(func.count(Report.id))).one()
-        
+        total_reports = scalar(select(func.count()).select_from(Report).where(Report.tenant_id == tenant_id))
+
         # Stundeneinträge
-        total_hours = session.exec(select(func.sum(TimeEntry.hours_worked))).one() or 0
+        total_hours = scalar(select(func.sum(TimeEntry.hours_worked)).where(TimeEntry.tenant_id == tenant_id))
         
         # Aktuelle Woche
         today = datetime.now()
         week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
         
-        hours_this_week = session.exec(
+        hours_this_week = scalar(
             select(func.sum(TimeEntry.hours_worked)).where(
+                TimeEntry.tenant_id == tenant_id,
                 TimeEntry.work_date >= week_start.date(),
-                TimeEntry.work_date <= week_end.date()
+                TimeEntry.work_date <= week_end.date(),
             )
-        ).one() or 0
+        )
         
         # Aktueller Monat
         month_start = today.replace(day=1)
-        revenue_this_month = session.exec(
+        revenue_this_month = scalar(
             select(func.sum(Invoice.total_amount)).where(
-                Invoice.invoice_date >= month_start
+                Invoice.tenant_id == tenant_id,
+                Invoice.invoice_date >= month_start,
             )
-        ).one() or 0
+        )
         
         return {
             "projects": {
