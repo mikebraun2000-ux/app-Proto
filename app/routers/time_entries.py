@@ -10,11 +10,12 @@ from ..database import get_session
 from ..models import TimeEntry, Employee, Project
 from ..schemas import TimeEntryCreate, TimeEntryUpdate, TimeEntry as TimeEntrySchema
 from ..auth import get_current_user, require_employee_or_admin
+from ..utils.tenant_scoping import add_tenant_filter, ensure_tenant_access, set_tenant_on_model
 
 router = APIRouter(prefix="/time-entries", tags=["time-entries"])
 
 @router.get("/", response_model=List[TimeEntrySchema])
-def get_time_entries(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_time_entries(session: Session = Depends(get_session), current_user=Depends(get_current_user)):
     """
     Stundeneinträge abrufen - rollenbasiert gefiltert.
     
@@ -22,16 +23,23 @@ def get_time_entries(session: Session = Depends(get_session), current_user = Dep
         List[TimeEntrySchema]: Liste der Stundeneinträge (gefiltert nach Rolle)
     """
     try:
-        # Rollenbasierte Filterung
-        if current_user.role == "admin":
-            # Admin sieht alle Einträge
-            statement = select(TimeEntry)
-        elif current_user.role == "buchhalter":
-            # Buchhalter sieht alle Einträge
-            statement = select(TimeEntry)
+        # Rollenbasierte Filterung mit Tenant-Scoping
+        if current_user.role == "mitarbeiter":
+            employee_statement = add_tenant_filter(
+                select(Employee).where(Employee.user_id == current_user.id),
+                Employee,
+                current_user.tenant_id,
+            )
+            employee = session.exec(employee_statement).first()
+            if not employee:
+                return []
+            statement = add_tenant_filter(
+                select(TimeEntry).where(TimeEntry.employee_id == employee.id),
+                TimeEntry,
+                current_user.tenant_id,
+            )
         else:
-            # Mitarbeiter sieht nur eigene Einträge (über employee_id = 1 für jetzt)
-            statement = select(TimeEntry).where(TimeEntry.employee_id == 1)
+            statement = add_tenant_filter(select(TimeEntry), TimeEntry, current_user.tenant_id)
         
         time_entries = session.exec(statement).all()
         
@@ -66,7 +74,11 @@ def get_time_entries(session: Session = Depends(get_session), current_user = Dep
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Stundeneinträge: {str(e)}")
 
 @router.post("/", response_model=TimeEntrySchema)
-def create_time_entry(time_entry: TimeEntryCreate, session: Session = Depends(get_session), current_user = Depends(require_employee_or_admin)):
+def create_time_entry(
+    time_entry: TimeEntryCreate,
+    session: Session = Depends(get_session),
+    current_user=Depends(require_employee_or_admin),
+):
     """
     Neuen Stundeneintrag erstellen.
     
@@ -82,13 +94,11 @@ def create_time_entry(time_entry: TimeEntryCreate, session: Session = Depends(ge
     """
     # Prüfen ob das Projekt existiert
     project = session.get(Project, time_entry.project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
+    ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
     
     # Prüfen ob der Mitarbeiter existiert
     employee = session.get(Employee, time_entry.employee_id)
-    if not employee:
-        raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden")
+    ensure_tenant_access(employee, current_user.tenant_id, not_found_detail="Mitarbeiter nicht gefunden")
     
     # Stundensatz aus Mitarbeiterdaten übernehmen falls nicht angegeben
     if not time_entry.hourly_rate and employee.hourly_rate:
@@ -118,6 +128,7 @@ def create_time_entry(time_entry: TimeEntryCreate, session: Session = Depends(ge
         hourly_rate=time_entry.hourly_rate,
         total_cost=total_cost
     )
+    set_tenant_on_model(db_time_entry, current_user.tenant_id)
     
     session.add(db_time_entry)
     session.commit()
@@ -145,7 +156,11 @@ def create_time_entry(time_entry: TimeEntryCreate, session: Session = Depends(ge
     }
 
 @router.get("/{time_entry_id}", response_model=TimeEntrySchema)
-def get_time_entry(time_entry_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_time_entry(
+    time_entry_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Einzelnen Stundeneintrag anhand der ID abrufen.
     
@@ -160,8 +175,7 @@ def get_time_entry(time_entry_id: int, session: Session = Depends(get_session), 
         HTTPException: Wenn Stundeneintrag nicht gefunden wird
     """
     time_entry = session.get(TimeEntry, time_entry_id)
-    if not time_entry:
-        raise HTTPException(status_code=404, detail="Stundeneintrag nicht gefunden")
+    time_entry = ensure_tenant_access(time_entry, current_user.tenant_id, not_found_detail="Stundeneintrag nicht gefunden")
     
     # Für Mitarbeiter: Stundensatz ausblenden
     if current_user.role == "mitarbeiter":
@@ -194,7 +208,7 @@ def update_time_entry(
     time_entry_id: int, 
     time_entry_update: TimeEntryUpdate, 
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Stundeneintrag aktualisieren.
@@ -212,8 +226,7 @@ def update_time_entry(
         HTTPException: Wenn Stundeneintrag nicht gefunden wird oder keine Berechtigung
     """
     time_entry = session.get(TimeEntry, time_entry_id)
-    if not time_entry:
-        raise HTTPException(status_code=404, detail="Stundeneintrag nicht gefunden")
+    time_entry = ensure_tenant_access(time_entry, current_user.tenant_id, not_found_detail="Stundeneintrag nicht gefunden")
     
     # Rollenbasierte Berechtigung prüfen
     if current_user.role == "mitarbeiter" and time_entry.employee_id != 1:
@@ -275,7 +288,11 @@ def update_time_entry(
     }
 
 @router.delete("/{time_entry_id}")
-def delete_time_entry(time_entry_id: int, session: Session = Depends(get_session)):
+def delete_time_entry(
+    time_entry_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Stundeneintrag löschen.
     
@@ -290,15 +307,18 @@ def delete_time_entry(time_entry_id: int, session: Session = Depends(get_session
         HTTPException: Wenn Stundeneintrag nicht gefunden wird
     """
     time_entry = session.get(TimeEntry, time_entry_id)
-    if not time_entry:
-        raise HTTPException(status_code=404, detail="Stundeneintrag nicht gefunden")
+    time_entry = ensure_tenant_access(time_entry, current_user.tenant_id, not_found_detail="Stundeneintrag nicht gefunden")
     
     session.delete(time_entry)
     session.commit()
     return {"message": "Stundeneintrag erfolgreich gelöscht"}
 
 @router.get("/project/{project_id}", response_model=List[TimeEntrySchema])
-def get_time_entries_by_project(project_id: int, session: Session = Depends(get_session)):
+def get_time_entries_by_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Alle Stundeneinträge eines Projekts abrufen.
     
@@ -314,15 +334,18 @@ def get_time_entries_by_project(project_id: int, session: Session = Depends(get_
     """
     # Prüfen ob das Projekt existiert
     project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
-    
-    statement = select(TimeEntry).where(TimeEntry.project_id == project_id)
+    ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
+
+    statement = add_tenant_filter(select(TimeEntry).where(TimeEntry.project_id == project_id), TimeEntry, current_user.tenant_id)
     time_entries = session.exec(statement).all()
     return time_entries
 
 @router.get("/employee/{employee_id}", response_model=List[TimeEntrySchema])
-def get_time_entries_by_employee(employee_id: int, session: Session = Depends(get_session)):
+def get_time_entries_by_employee(
+    employee_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Alle Stundeneinträge eines Mitarbeiters abrufen.
     
@@ -338,10 +361,9 @@ def get_time_entries_by_employee(employee_id: int, session: Session = Depends(ge
     """
     # Prüfen ob der Mitarbeiter existiert
     employee = session.get(Employee, employee_id)
-    if not employee:
-        raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden")
-    
-    statement = select(TimeEntry).where(TimeEntry.employee_id == employee_id)
+    ensure_tenant_access(employee, current_user.tenant_id, not_found_detail="Mitarbeiter nicht gefunden")
+
+    statement = add_tenant_filter(select(TimeEntry).where(TimeEntry.employee_id == employee_id), TimeEntry, current_user.tenant_id)
     time_entries = session.exec(statement).all()
     return time_entries
 

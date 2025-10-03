@@ -10,6 +10,18 @@ Ein FastAPI-Backend für eine lokale Bau-Dokumentations-Anwendung mit SQLite-Dat
 - **SQLite-Datenbank**: Lokale Datenbank mit SQLModel
 - **REST-API**: Vollständige REST-API mit FastAPI
 
+## Mandanten-Scoping & Migration
+
+- Alle Datenzugriffe sind mandantengebunden. Neue Datensätze werden automatisch mit der `tenant_id` des authentifizierten Benutzers gespeichert, Lese- und Löschvorgänge sind entsprechend gefiltert.
+- Die Helper-Funktionen in `app/utils/tenant_scoping.py` kapseln das Setzen und Prüfen von `tenant_id`-Werten und sollten in neuen Routern wiederverwendet werden.
+- Auch Rechnungs-, Projektbild- und Dashboard-Endpunkte verwenden die Hilfsfunktionen, um Aggregationen und Dateiuploads strikt auf den aktuellen Mandanten zu begrenzen.
+- **Migrationsempfehlung für bestehende Daten**:
+  1. Erstelle ein Backup der aktuellen Datenbankdatei (`database.db`).
+  2. Analysiere vorhandene Tabellen (`Project`, `Report`, `Offer`, `TimeEntry`, `Invoice`, `Employee` usw.) auf fehlende oder falsche `tenant_id`-Werte.
+  3. Weise jedem Legacy-Datensatz eine valide `tenant_id` zu (z. B. per SQL-Update), orientiert an den Benutzerzuordnungen oder zuvor definierten Standardmandanten.
+  4. Prüfe nach der Zuordnung die referenzierten Fremdschlüssel (z. B. `project_id`, `employee_id`), damit sie auf Datensätze desselben Mandanten zeigen.
+  5. Starte die Anwendung neu und teste die wichtigsten Geschäftsprozesse (Projektanlage, Berichte, Angebote, Rechnungen), um sicherzustellen, dass alle Filter korrekt greifen.
+
 ## Installation und Start
 
 ### 1. Virtuelle Umgebung erstellen

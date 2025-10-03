@@ -13,6 +13,7 @@ from ..database import get_session
 from ..models import Report, Project, ReportImage
 from ..schemas import ReportCreate, ReportUpdate, Report as ReportSchema, ReportImage as ReportImageSchema
 from ..auth import get_current_user, require_buchhalter_or_admin
+from ..utils.tenant_scoping import add_tenant_filter, ensure_tenant_access, set_tenant_on_model
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -20,9 +21,13 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 UPLOAD_DIR = "uploads/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-def _get_report_attachments(session: Session, report_id: int) -> list:
+def _get_report_attachments(session: Session, report_id: int, tenant_id: int) -> list:
     attachments = []
-    statement = select(ReportImage).where(ReportImage.report_id == report_id)
+    statement = add_tenant_filter(
+        select(ReportImage).where(ReportImage.report_id == report_id),
+        ReportImage,
+        tenant_id,
+    )
     report_images = session.exec(statement).all()
 
     for img in report_images:
@@ -36,7 +41,7 @@ def _get_report_attachments(session: Session, report_id: int) -> list:
     return attachments
 
 @router.get("/", response_model=List[ReportSchema])
-def get_reports(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def get_reports(session: Session = Depends(get_session), current_user=Depends(get_current_user)):
     """
     Alle Berichte abrufen.
     
@@ -45,7 +50,7 @@ def get_reports(session: Session = Depends(get_session), current_user = Depends(
     """
     try:
         # Verwende die übergebene Session
-        statement = select(Report).order_by(Report.id.desc())
+        statement = add_tenant_filter(select(Report).order_by(Report.id.desc()), Report, current_user.tenant_id)
         reports = session.exec(statement).all()
         print(f"DEBUG: {len(reports)} Berichte gefunden")
         
@@ -54,10 +59,11 @@ def get_reports(session: Session = Depends(get_session), current_user = Depends(
         for report in reports:
             # Projekt-Informationen abrufen
             project = session.get(Project, report.project_id)
-            project_name = project.name if project else "Unbekannt"
+            project = ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
+            project_name = project.name
             
             # Anhänge für diesen Bericht abrufen (nur die Bilder dieses Berichts!)
-            attachments = _get_report_attachments(session, report.id)
+            attachments = _get_report_attachments(session, report.id, current_user.tenant_id)
             print(f"DEBUG: Bericht {report.id} - {len(attachments)} Anhänge aus Datenbank")
             
             # Debug-Ausgabe
@@ -96,7 +102,11 @@ def get_reports(session: Session = Depends(get_session), current_user = Depends(
         raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Berichte: {str(e)}")
 
 @router.post("/", response_model=ReportSchema)
-def create_report(report: ReportCreate, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def create_report(
+    report: ReportCreate,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Neuen Bericht erstellen.
     
@@ -113,8 +123,7 @@ def create_report(report: ReportCreate, session: Session = Depends(get_session),
     try:
         # Prüfen ob das Projekt existiert
         project = session.get(Project, report.project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
+        ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
         
         # Datum konvertieren (nur wenn vorhanden und nicht leer)
         report_date = None
@@ -144,6 +153,7 @@ def create_report(report: ReportCreate, session: Session = Depends(get_session),
             next_steps=report.next_steps,
             progress_percentage=report.progress_percentage
         )
+        set_tenant_on_model(db_report, current_user.tenant_id)
         
         session.add(db_report)
         session.commit()
@@ -158,7 +168,11 @@ def create_report(report: ReportCreate, session: Session = Depends(get_session),
         raise HTTPException(status_code=500, detail=f"Fehler bei Bericht-Erstellung: {str(e)}")
 
 @router.get("/{report_id}", response_model=ReportSchema)
-def get_report(report_id: int, session: Session = Depends(get_session)):
+def get_report(
+    report_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Einzelnen Bericht anhand der ID abrufen.
     
@@ -173,15 +187,15 @@ def get_report(report_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Bericht nicht gefunden wird
     """
     report = session.get(Report, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
-    
+    report = ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
+
     # Projekt-Informationen abrufen
     project = session.get(Project, report.project_id)
-    project_name = project.name if project else "Unbekannt"
-    
+    project = ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
+    project_name = project.name
+
     # Anhänge für diesen Bericht abrufen (vereinfachte Lösung)
-    attachments = _get_report_attachments(session, report.id)
+    attachments = _get_report_attachments(session, report.id, current_user.tenant_id)
     print(f"DEBUG: Einzelner Bericht {report.id} - {len(attachments)} Anhänge aus Datenbank")
     
     # Bericht-Daten mit Projekt-Namen und Anhängen erweitern
@@ -212,7 +226,7 @@ def update_report(
     report_id: int, 
     report_update: ReportUpdate, 
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Bericht aktualisieren.
@@ -229,8 +243,7 @@ def update_report(
         HTTPException: Wenn Bericht nicht gefunden wird
     """
     report = session.get(Report, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
+    report = ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
     
     # Nur gesetzte Felder aktualisieren
     report_data = report_update.model_dump(exclude_unset=True)
@@ -265,7 +278,11 @@ def update_report(
     return report
 
 @router.delete("/{report_id}")
-def delete_report(report_id: int, session: Session = Depends(get_session)):
+def delete_report(
+    report_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Bericht löschen.
     
@@ -280,18 +297,18 @@ def delete_report(report_id: int, session: Session = Depends(get_session)):
         HTTPException: Wenn Bericht nicht gefunden wird
     """
     report = session.get(Report, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
-    
+    report = ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
+
     session.delete(report)
     session.commit()
     return {"message": "Bericht erfolgreich gelöscht"}
 
 @router.post("/{report_id}/upload_image")
 def upload_image(
-    report_id: int, 
-    file: UploadFile = File(...), 
-    session: Session = Depends(get_session)
+    report_id: int,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user)
 ):
     """
     Bild zu einem Bericht hochladen.
@@ -309,8 +326,7 @@ def upload_image(
     """
     # Prüfen ob der Bericht existiert
     report = session.get(Report, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
+    ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
     
     # Dateityp prüfen
     if not file.content_type or not file.content_type.startswith('image/'):
@@ -339,7 +355,11 @@ def upload_image(
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Datei: {str(e)}")
 
 @router.get("/project/{project_id}", response_model=List[ReportSchema])
-def get_reports_by_project(project_id: int, session: Session = Depends(get_session)):
+def get_reports_by_project(
+    project_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user),
+):
     """
     Alle Berichte eines Projekts abrufen.
     
@@ -355,10 +375,9 @@ def get_reports_by_project(project_id: int, session: Session = Depends(get_sessi
     """
     # Prüfen ob das Projekt existiert
     project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
-    
-    statement = select(Report).where(Report.project_id == project_id)
+    ensure_tenant_access(project, current_user.tenant_id, not_found_detail="Projekt nicht gefunden")
+
+    statement = add_tenant_filter(select(Report).where(Report.project_id == project_id), Report, current_user.tenant_id)
     reports = session.exec(statement).all()
     return reports
 
@@ -368,7 +387,7 @@ async def upload_report_file(
     report_id: int,
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Foto für einen Bericht hochladen.
@@ -376,8 +395,7 @@ async def upload_report_file(
     try:
         # Prüfe ob Bericht existiert
         report = session.get(Report, report_id)
-        if not report:
-            raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
+        ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
         
         # Prüfe Dateityp (nur Bilder)
         if not file.content_type.startswith('image/'):
@@ -414,6 +432,7 @@ async def upload_report_file(
             file_path=file_path,
             file_size=len(content)
         )
+        set_tenant_on_model(report_image, current_user.tenant_id)
         
         # Speichere in der Datenbank
         try:
@@ -425,14 +444,18 @@ async def upload_report_file(
             
             # Verifiziere, dass es wirklich gespeichert wurde
             from sqlmodel import select
-            statement = select(ReportImage).where(ReportImage.filename == unique_filename)
+            statement = add_tenant_filter(
+                select(ReportImage).where(ReportImage.filename == unique_filename),
+                ReportImage,
+                current_user.tenant_id,
+            )
             saved_image = session.exec(statement).first()
             if saved_image:
                 print(f"DEBUG: Verifizierung erfolgreich - ReportImage ID {saved_image.id} für Bericht {saved_image.report_id} gespeichert")
             else:
                 print(f"WARNUNG: ReportImage konnte nicht verifiziert werden!")
             # Zähle alle ReportImage-Einträge in der DB
-            all_images = session.exec(select(ReportImage)).all()
+            all_images = session.exec(add_tenant_filter(select(ReportImage), ReportImage, current_user.tenant_id)).all()
             print(f"DEBUG: ReportImage-Einträge in DB nach Speichern: {len(all_images)}")
             
         except Exception as e:
@@ -455,7 +478,7 @@ async def upload_report_file(
 async def get_report_files(
     report_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Alle Fotos eines Berichts abrufen.
@@ -463,15 +486,18 @@ async def get_report_files(
     try:
         # Prüfe ob Bericht existiert
         report = session.get(Report, report_id)
-        if not report:
-            raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
+        ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
         
         # Lade die Bilder aus der Datenbank für diesen spezifischen Bericht
         files = []
         try:
             from app.models import ReportImage
             # Suche alle ReportImage-Einträge für diesen Bericht
-            statement = select(ReportImage).where(ReportImage.report_id == report_id)
+            statement = add_tenant_filter(
+                select(ReportImage).where(ReportImage.report_id == report_id),
+                ReportImage,
+                current_user.tenant_id,
+            )
             report_images = session.exec(statement).all()
             
             # Konvertiere zu Datei-Informationen
@@ -546,7 +572,7 @@ async def delete_report_file(
     report_id: int,
     filename: str,
     session: Session = Depends(get_session),
-    current_user = Depends(require_buchhalter_or_admin)
+    current_user=Depends(require_buchhalter_or_admin)
 ):
     """
     Foto eines Berichts löschen.
@@ -554,15 +580,18 @@ async def delete_report_file(
     try:
         # Prüfe ob Bericht existiert
         report = session.get(Report, report_id)
-        if not report:
-            raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
+        ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
         
         # Lösche Datei aus der Datenbank
         try:
             from app.models import ReportImage
-            attachment_statement = select(ReportImage).where(
-                ReportImage.report_id == report_id,
-                ReportImage.filename == filename
+            attachment_statement = add_tenant_filter(
+                select(ReportImage).where(
+                    ReportImage.report_id == report_id,
+                    ReportImage.filename == filename
+                ),
+                ReportImage,
+                current_user.tenant_id,
             )
             attachment = session.exec(attachment_statement).first()
             
@@ -593,15 +622,14 @@ def upload_image(
     description: str = None,
     image_type: str = "progress",
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Lädt ein Bild für einen Bericht hoch.
     """
     # Bericht existiert prüfen
     report = session.get(Report, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
+    ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
     
     # Dateityp prüfen
     if not file.content_type.startswith('image/'):
@@ -635,6 +663,7 @@ def upload_image(
             description=description,
             image_type=image_type
         )
+        set_tenant_on_model(report_image, current_user.tenant_id)
         session.add(report_image)
         session.commit()
         session.refresh(report_image)
@@ -650,17 +679,16 @@ def upload_image(
 def get_report_images(
     report_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Ruft alle Bilder für einen Bericht ab.
     """
     report = session.get(Report, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Bericht nicht gefunden")
-    
+    ensure_tenant_access(report, current_user.tenant_id, not_found_detail="Bericht nicht gefunden")
+
     images = session.exec(
-        select(ReportImage).where(ReportImage.report_id == report_id)
+        add_tenant_filter(select(ReportImage).where(ReportImage.report_id == report_id), ReportImage, current_user.tenant_id)
     ).all()
     return images
 
@@ -668,14 +696,13 @@ def get_report_images(
 def delete_image(
     image_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Löscht ein Berichtsbild.
     """
     image = session.get(ReportImage, image_id)
-    if not image:
-        raise HTTPException(status_code=404, detail="Bild nicht gefunden")
+    image = ensure_tenant_access(image, current_user.tenant_id, not_found_detail="Bild nicht gefunden")
     
     # Datei vom Dateisystem löschen
     if os.path.exists(image.file_path):
@@ -690,7 +717,7 @@ def delete_image(
 def download_image(
     image_id: int,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Lädt ein Berichtsbild herunter.
@@ -698,8 +725,7 @@ def download_image(
     from fastapi.responses import FileResponse
     
     image = session.get(ReportImage, image_id)
-    if not image:
-        raise HTTPException(status_code=404, detail="Bild nicht gefunden")
+    image = ensure_tenant_access(image, current_user.tenant_id, not_found_detail="Bild nicht gefunden")
     
     if not os.path.exists(image.file_path):
         raise HTTPException(status_code=404, detail="Bilddatei nicht gefunden")
@@ -713,7 +739,8 @@ def download_image(
 @router.get("/images/{image_id}/view")
 def view_report_image(
     image_id: int,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_user)
 ):
     """
     Berichtsbild anzeigen (öffentlicher Endpoint für <img> tags).
@@ -721,8 +748,7 @@ def view_report_image(
     from fastapi.responses import FileResponse
     
     image = session.get(ReportImage, image_id)
-    if not image:
-        raise HTTPException(status_code=404, detail="Bild nicht gefunden")
+    image = ensure_tenant_access(image, current_user.tenant_id, not_found_detail="Bild nicht gefunden")
     
     if not os.path.exists(image.file_path):
         raise HTTPException(status_code=404, detail="Bilddatei nicht gefunden")

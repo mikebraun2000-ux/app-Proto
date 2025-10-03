@@ -9,8 +9,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 from sqlmodel import Session, select
+
 from app.models import Project, TimeEntry, Report, Offer, MaterialUsage, Employee, Invoice
 from app.schemas import InvoiceGenerationRequest, InvoiceGenerationData, InvoiceCalculationResult, InvoiceItem as InvoiceItemSchema
+from app.utils.tenant_scoping import add_tenant_filter
 
 # Logger konfigurieren
 logger = logging.getLogger(__name__)
@@ -19,8 +21,9 @@ logger = logging.getLogger(__name__)
 class InvoiceGenerator:
     """Service für automatische Rechnungsgenerierung mit erweiterten Funktionen."""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, tenant_id: int):
         self.session = session
+        self.tenant_id = tenant_id
         self.default_tax_rate = 19.0
         self.default_labor_percentage = 0.0
         self.default_currency = "EUR"
@@ -61,7 +64,7 @@ class InvoiceGenerator:
         
         # Projekt laden
         project = self.session.get(Project, request.project_id)
-        if not project:
+        if not project or project.tenant_id != self.tenant_id:
             raise ValueError(f"Projekt mit ID {request.project_id} nicht gefunden")
         
         # Zeitraum definieren
@@ -69,35 +72,51 @@ class InvoiceGenerator:
         end_date = request.end_date or datetime.now()
         
         # Stundeneinträge laden
-        time_entries_query = select(TimeEntry).where(
-            TimeEntry.project_id == request.project_id,
-            TimeEntry.work_date >= start_date,
-            TimeEntry.work_date <= end_date
+        time_entries_query = add_tenant_filter(
+            select(TimeEntry).where(
+                TimeEntry.project_id == request.project_id,
+                TimeEntry.work_date >= start_date,
+                TimeEntry.work_date <= end_date,
+            ),
+            TimeEntry,
+            self.tenant_id,
         )
         time_entries = self.session.exec(time_entries_query).all()
         
         # Berichte laden
-        reports_query = select(Report).where(
-            Report.project_id == request.project_id,
-            Report.report_date >= start_date,
-            Report.report_date <= end_date
+        reports_query = add_tenant_filter(
+            select(Report).where(
+                Report.project_id == request.project_id,
+                Report.report_date >= start_date,
+                Report.report_date <= end_date,
+            ),
+            Report,
+            self.tenant_id,
         )
         reports = self.session.exec(reports_query).all()
         
         # Angebote laden
-        offers_query = select(Offer).where(Offer.project_id == request.project_id)
+        offers_query = add_tenant_filter(
+            select(Offer).where(Offer.project_id == request.project_id),
+            Offer,
+            self.tenant_id,
+        )
         offers = self.session.exec(offers_query).all()
         
         # Materialverbrauch laden
-        materials_query = select(MaterialUsage).where(
-            MaterialUsage.project_id == request.project_id,
-            MaterialUsage.usage_date >= start_date,
-            MaterialUsage.usage_date <= end_date
+        materials_query = add_tenant_filter(
+            select(MaterialUsage).where(
+                MaterialUsage.project_id == request.project_id,
+                MaterialUsage.usage_date >= start_date,
+                MaterialUsage.usage_date <= end_date,
+            ),
+            MaterialUsage,
+            self.tenant_id,
         )
         materials = self.session.exec(materials_query).all()
         
         # Mitarbeiter laden
-        employees_query = select(Employee)
+        employees_query = add_tenant_filter(select(Employee), Employee, self.tenant_id)
         employees = self.session.exec(employees_query).all()
         
         return InvoiceGenerationData(
@@ -284,10 +303,16 @@ class InvoiceGenerator:
             items=items
         )
     
-    def create_invoice_from_calculation(self, project_id: int, calculation: dict, 
-                                      invoice_number: str, client_name: str, client_address: str = None) -> Invoice:
+    def create_invoice_from_calculation(
+        self,
+        project_id: int,
+        calculation: dict,
+        invoice_number: str,
+        client_name: str,
+        client_address: str = None,
+    ) -> Invoice:
         """Erstellt eine tatsächliche Rechnung aus dem Berechnungsergebnis."""
-        
+
         # Rechnung erstellen
         invoice = Invoice(
             project_id=project_id,
@@ -303,11 +328,12 @@ class InvoiceGenerator:
             items=json.dumps(calculation.get('items', [])),
             status="entwurf"
         )
-        
+        invoice.tenant_id = self.tenant_id
+
         self.session.add(invoice)
         self.session.commit()
         self.session.refresh(invoice)
-        
+
         return invoice
     
     def generate_invoice_number(self, project_id: int, prefix: str = "RE") -> str:
@@ -323,7 +349,11 @@ class InvoiceGenerator:
         """
         # Aktuelle Rechnungsnummern für das Projekt zählen
         existing_invoices = self.session.exec(
-            select(Invoice).where(Invoice.project_id == project_id)
+            add_tenant_filter(
+                select(Invoice).where(Invoice.project_id == project_id),
+                Invoice,
+                self.tenant_id,
+            )
         ).all()
         
         invoice_count = len(existing_invoices) + 1

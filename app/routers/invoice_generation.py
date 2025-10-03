@@ -67,7 +67,7 @@ def generate_invoice_calculation(
         InvoiceCalculationResult: Berechnungsergebnis
     """
     try:
-        generator = InvoiceGenerator(session)
+        generator = InvoiceGenerator(session, current_user.tenant_id)
         result = generator.generate_invoice(request)
         return result
     except Exception as e:
@@ -112,7 +112,7 @@ def create_invoice_from_calculation(
             if not client_name: missing.append('client_name')
             raise HTTPException(status_code=400, detail=f"Fehlende erforderliche Parameter: {missing}")
         
-        generator = InvoiceGenerator(session)
+        generator = InvoiceGenerator(session, current_user.tenant_id)
         invoice = generator.create_invoice_from_calculation(
             project_id, calculation, invoice_number, client_name, client_address
         )
