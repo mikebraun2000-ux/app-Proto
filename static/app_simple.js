@@ -63,6 +63,7 @@ let invoices = [];
 
 // API Base URL
 const API_BASE = 'http://localhost:8000';
+const USER_SETTINGS_ENDPOINT = `${API_BASE}/user/settings`;
 
 // Hilfsfunktion für Authorization Headers
 function getAuthHeaders() {
@@ -1514,55 +1515,254 @@ function updateAdminNotifications() {
 }
 
 // Theme-Management
-function initTheme() {
-    // Lade gespeichertes Theme oder verwende Light Mode als Standard
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-}
+const SIMPLE_THEME_FLAG_KEY = 'darkMode';
+const SIMPLE_LEGACY_THEME_KEY = 'theme';
+const SIMPLE_DARK_MODE_CLASS = 'dark-mode';
+const SIMPLE_DARK_THEME_VALUE = 'dark';
+const SIMPLE_LIGHT_THEME_VALUE = 'light';
+const SIMPLE_BOOTSTRAP_THEME_ATTRIBUTE = 'data-bs-theme';
+let simpleSystemThemeListenerRegistered = false;
+let simpleServerThemePreference = null;
 
-function setTheme(theme) {
-    const body = document.body;
+/**
+ * Aktualisiert die Beschriftung der Theme-Toggle-Buttons synchron zum aktiven Theme.
+ */
+function updateSimpleThemeControls() {
     const themeToggle = document.getElementById('themeToggle');
-    const darkModeToggle = document.getElementById('darkModeToggle');
     const darkModeIcon = document.getElementById('darkModeIcon');
     const darkModeText = document.getElementById('darkModeText');
-    
-    if (theme === 'dark') {
-        body.classList.add('dark-mode');
-        if (themeToggle) {
-            themeToggle.innerHTML = '<i class="fas fa-sun me-2"></i>Light Mode';
-        }
-        if (darkModeIcon) {
-            darkModeIcon.className = 'fas fa-sun';
-        }
-        if (darkModeText) {
-            darkModeText.textContent = 'Light Mode';
-        }
-    } else {
-        body.classList.remove('dark-mode');
-        if (themeToggle) {
-            themeToggle.innerHTML = '<i class="fas fa-moon me-2"></i>Dark Mode';
-        }
-        if (darkModeIcon) {
-            darkModeIcon.className = 'fas fa-moon';
-        }
-        if (darkModeText) {
-            darkModeText.textContent = 'Dark Mode';
-        }
+
+    if (themeToggle) {
+        themeToggle.innerHTML = isDarkMode
+            ? '<i class="fas fa-sun me-2"></i>Light Mode'
+            : '<i class="fas fa-moon me-2"></i>Dark Mode';
     }
-    
-    // Theme in localStorage speichern
-    localStorage.setItem('theme', theme);
-    console.log('Theme geändert zu:', theme);
+
+    if (darkModeIcon) {
+        darkModeIcon.className = isDarkMode ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    if (darkModeText) {
+        darkModeText.textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
+    }
+}
+
+/**
+ * Liest die gespeicherte Theme-Präferenz aus dem Local Storage.
+ */
+function getSimpleStoredTheme() {
+    try {
+        const storedFlag = localStorage.getItem(SIMPLE_THEME_FLAG_KEY);
+        if (storedFlag === 'true') {
+            return SIMPLE_DARK_THEME_VALUE;
+        }
+        if (storedFlag === 'false') {
+            return SIMPLE_LIGHT_THEME_VALUE;
+        }
+
+        const legacyTheme = localStorage.getItem(SIMPLE_LEGACY_THEME_KEY);
+        if (legacyTheme === SIMPLE_DARK_THEME_VALUE || legacyTheme === SIMPLE_LIGHT_THEME_VALUE) {
+            return legacyTheme;
+        }
+    } catch (error) {
+        console.warn('Konnte gespeichertes Theme nicht lesen:', error);
+    }
+
+    return null;
+}
+
+/**
+ * Speichert die Theme-Einstellung kompatibel für aktuelle und alte Keys.
+ */
+function persistSimpleTheme(theme) {
+    const prefersDark = theme === SIMPLE_DARK_THEME_VALUE;
+
+    try {
+        localStorage.setItem(SIMPLE_THEME_FLAG_KEY, prefersDark ? 'true' : 'false');
+        localStorage.setItem(SIMPLE_LEGACY_THEME_KEY, theme);
+    } catch (error) {
+        console.warn('Konnte Theme nicht speichern:', error);
+    }
+}
+
+/**
+ * Synchronisiert die Theme-Präferenz mit dem Backend.
+ */
+async function persistSimpleThemeToServer(theme) {
+    if (!authToken) {
+        return false;
+    }
+
+    if (theme !== SIMPLE_DARK_THEME_VALUE && theme !== SIMPLE_LIGHT_THEME_VALUE) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(USER_SETTINGS_ENDPOINT, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ theme_preference: theme })
+        });
+
+        if (!response.ok) {
+            console.warn('Server-Update der Theme-Präferenz fehlgeschlagen:', response.status);
+            return false;
+        }
+
+        simpleServerThemePreference = theme;
+        return true;
+    } catch (error) {
+        console.warn('Fehler beim Synchronisieren der Theme-Präferenz:', error);
+        return false;
+    }
+}
+
+/**
+ * Lädt die aktuelle Theme-Präferenz vom Backend.
+ */
+async function fetchSimpleThemeFromServer() {
+    if (!authToken) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(USER_SETTINGS_ENDPOINT, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.status === 401) {
+            console.warn('Nicht autorisiert beim Laden der Theme-Präferenz (simple).');
+            authToken = null;
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user_role');
+            window.location.href = '/login';
+            return null;
+        }
+
+        if (!response.ok) {
+            console.warn('Fehler beim Laden der Theme-Präferenz:', response.status);
+            return null;
+        }
+
+        const payload = await response.json();
+        const serverTheme = payload?.theme_preference || null;
+        if (serverTheme === SIMPLE_DARK_THEME_VALUE || serverTheme === SIMPLE_LIGHT_THEME_VALUE) {
+            simpleServerThemePreference = serverTheme;
+            return serverTheme;
+        }
+
+        return null;
+    } catch (error) {
+        console.warn('Fehler beim Abrufen der Theme-Präferenz:', error);
+        return null;
+    }
+}
+
+/**
+ * Aktiviert das angegebene Theme inklusive Bootstrap-Attribut.
+ */
+function applySimpleTheme(theme, { persistPreference = true, syncServer = false } = {}) {
+    isDarkMode = theme === SIMPLE_DARK_THEME_VALUE;
+
+    if (document.body) {
+        document.body.classList.toggle(SIMPLE_DARK_MODE_CLASS, isDarkMode);
+    }
+
+    if (document.documentElement) {
+        document.documentElement.setAttribute(
+            SIMPLE_BOOTSTRAP_THEME_ATTRIBUTE,
+            isDarkMode ? 'dark' : 'light'
+        );
+    }
+
+    if (persistPreference) {
+        persistSimpleTheme(theme);
+    }
+
+    if (syncServer) {
+        persistSimpleThemeToServer(theme);
+    }
+
+    updateSimpleThemeControls();
+}
+
+/**
+ * Reagiert auf System-Theme-Wechsel, sofern keine Benutzerpräferenz gespeichert wurde.
+ */
+function handleSimpleSystemThemeChange(mediaQueryList) {
+    if (getSimpleStoredTheme()) {
+        return;
+    }
+
+    const nextTheme = mediaQueryList.matches ? SIMPLE_DARK_THEME_VALUE : SIMPLE_LIGHT_THEME_VALUE;
+    applySimpleTheme(nextTheme, { persistPreference: false });
+}
+
+/**
+ * Registriert Listener für "prefers-color-scheme", ohne doppelte Registrierung.
+ */
+function registerSimpleSystemThemeListener() {
+    if (simpleSystemThemeListenerRegistered || !window.matchMedia) {
+        return;
+    }
+
+    const mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
+    if (typeof mediaQueryList.addEventListener === 'function') {
+        mediaQueryList.addEventListener('change', handleSimpleSystemThemeChange);
+    } else if (typeof mediaQueryList.addListener === 'function') {
+        mediaQueryList.addListener(handleSimpleSystemThemeChange);
+    }
+
+    simpleSystemThemeListenerRegistered = true;
+}
+
+/**
+ * Initialisiert das Theme anhand gespeicherter oder systemweiter Präferenz.
+ */
+function initTheme() {
+    const storedTheme = getSimpleStoredTheme();
+    if (storedTheme) {
+        applySimpleTheme(storedTheme, { persistPreference: true });
+    } else {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applySimpleTheme(prefersDark ? SIMPLE_DARK_THEME_VALUE : SIMPLE_LIGHT_THEME_VALUE, {
+            persistPreference: false
+        });
+    }
+
+    registerSimpleSystemThemeListener();
+}
+
+/**
+ * Lädt die Server-Präferenz und synchronisiert sie mit lokalen Einstellungen.
+ */
+async function hydrateSimpleThemeFromServer() {
+    if (!authToken) {
+        return;
+    }
+
+    const localTheme = getSimpleStoredTheme();
+    const serverTheme = await fetchSimpleThemeFromServer();
+
+    if (serverTheme && serverTheme !== (isDarkMode ? SIMPLE_DARK_THEME_VALUE : SIMPLE_LIGHT_THEME_VALUE)) {
+        applySimpleTheme(serverTheme, { persistPreference: true, syncServer: false });
+        return;
+    }
+
+    if (!serverTheme && localTheme) {
+        await persistSimpleThemeToServer(localTheme);
+    }
 }
 
 function toggleTheme() {
-    const body = document.body;
-    const currentTheme = body.classList.contains('dark-mode') ? 'dark' : 'light';
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    setTheme(newTheme);
-    showAlert(`Theme gewechselt zu ${newTheme === 'dark' ? 'Dark' : 'Light'} Mode`, 'info');
+    const nextTheme = isDarkMode ? SIMPLE_LIGHT_THEME_VALUE : SIMPLE_DARK_THEME_VALUE;
+    applySimpleTheme(nextTheme, { persistPreference: true, syncServer: true });
+    showAlert(`Theme gewechselt zu ${nextTheme === SIMPLE_DARK_THEME_VALUE ? 'Dark' : 'Light'} Mode`, 'info');
 }
 
 // Benachrichtigungen anzeigen
@@ -1888,12 +2088,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
     }
-    
+
+    await hydrateSimpleThemeFromServer();
+    if (!authToken) {
+        return;
+    }
+
     console.log('Token gefunden, lade Benutzerdaten...');
-    
-    // Dark Mode aus localStorage laden
-    loadDarkModePreference();
-    
+
     // Standard-Sektion anzeigen
     showSection('dashboard');
     
@@ -2579,14 +2781,6 @@ function showAlert(message, type) {
                 alert.parentNode.removeChild(alert);
             }
         }, 5000);
-    }
-}
-
-function loadDarkModePreference() {
-    const darkMode = localStorage.getItem('darkMode') === 'true';
-    if (darkMode) {
-        document.body.classList.add('dark-mode');
-        isDarkMode = true;
     }
 }
 

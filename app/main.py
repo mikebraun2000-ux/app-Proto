@@ -10,7 +10,20 @@ from fastapi.staticfiles import StaticFiles
 import logging
 import os
 from .database import create_db_and_tables
-from .routers import projects, reports, offers, employees, time_entries, project_images, invoices, auth, invoice_generation, billing, company_logo
+from .routers import (
+    projects,
+    reports,
+    offers,
+    employees,
+    time_entries,
+    project_images,
+    invoices,
+    auth,
+    invoice_generation,
+    billing,
+    company_logo,
+    user_settings,
+)
 from .utils.feature_flags import FEATURE_FLAGS
 from app.utils.db_compat import ensure_tenant_settings_columns
 
@@ -83,6 +96,7 @@ app.include_router(invoices.router)
 app.include_router(invoice_generation.router)
 app.include_router(billing.router)
 app.include_router(company_logo.router)
+app.include_router(user_settings.router)
 
 # Dashboard
 from app.routers import dashboard
