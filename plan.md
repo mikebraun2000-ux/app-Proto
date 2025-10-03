@@ -5,7 +5,7 @@
 ### ✅ **Was bereits implementiert ist:**
 
 **Backend (FastAPI + SQLModel):**
-- Vollständige CRUD-APIs für acc
+- Vollständige CRUD-APIs für alle Kernobjekte
 - SQLite-Datenbank mit strukturierten Modellen
 - PDF-Generierung für Rechnungen
 - Automatische Rechnungserstellung aus Stunden/Materialien
@@ -197,6 +197,48 @@
 - Datenbank-Indizes für Performance
 
 ### **🚀 Sofortige Quick-Wins:**
+
+## 🔐 Sicherheits- und Mandantenkonzept
+
+- **Mandantenkontext**: Jeder Request führt eine `tenant_id`, die beim Login im JWT hinterlegt und bei jeder Datenbankabfrage als Filter erzwungen wird. Alle Tabellen besitzen eine verpflichtende Tenant-Spalte.
+- **Isolierte Speicherbereiche**: Datei-Uploads werden in nach Mandant getrennten Verzeichnissen mit Zugriffsbeschränkungen gespeichert. Für eine PostgreSQL-Migration werden pro Mandant Schema-Segregation und Row-Level-Security-Regeln vorbereitet.
+- **Rollenmodell**: Innerhalb eines Mandanten steuern Rollen (Admin, Projektleitung, Buchhaltung, Mitarbeiter) die verfügbaren Endpunkte und Aktionen. Sensible Aktionen lösen zusätzliche Prüfungen (Audit-Log, Step-up-PIN) aus.
+- **Sicherheitsmaßnahmen**: Durchgehende TLS-Verschlüsselung, harte Passwort-Policies, Rotation von Anwendungsschlüsseln sowie Sicherheits-Scans (Dependency-Checks, SAST) in der Pipeline.
+
+## 🚀 Go-Live Fahrplan
+
+1. **Stufe 0 – Vorbereitung (Woche 1)**
+   - Abgleich der Anforderungen mit Stakeholdern, Definition von Tenants und Rollen.
+   - Infrastruktur vorbereiten (Produktions- und Staging-Umgebungen, Secrets-Management).
+   - Aufsetzen der CI/CD-Pipeline inkl. statischer Analysen, Tests und Security-Checks.
+2. **Stufe 1 – Technische Stabilisierung (Woche 2)**
+   - Automatisierte Testsuite (Unit, Integration, API-Contract) vervollständigen.
+   - Datenbank-Migration mit Tenant-Spalte und Seed-Daten für Muster-Mandanten.
+   - Einführung von strukturiertem Logging und Basis-Monitoring.
+3. **Stufe 2 – Qualitätssicherung (Woche 3)**
+   - End-to-End-Tests in Staging mit realistischen Mandanten-Szenarien.
+   - Penetrationstest/Threat-Modeling mit Fokus auf Tenant-Isolation und Auth.
+   - Abnahme durch Key-User, Schulungen für Admin- und Buchhaltungsrollen.
+4. **Stufe 3 – Produktionsstart (Woche 4)**
+   - Backup-Plan aktivieren: tägliche DB-Dumps, stündliche Log-Exports, Restore-Tests.
+   - Datenmigration aus Alt-Systemen, Validierung durch Stichproben.
+   - Finaler Go/No-Go-Workshop, Release-Freeze, Deployment in Produktion.
+5. **Stufe 4 – Hypercare (Woche 5)**
+   - Engmaschiges Monitoring, Incident-Playbook aktiv halten.
+   - Geplante Patch-Fenster für Hotfixes, Abschlussbericht nach 2 Wochen.
+
+### 🔬 Teststrategie
+
+- **Automatisierte Tests**: Unit- und Integrationstests pro Module, End-to-End-Suites für kritische Mandanten-Flows, Security-Tests (JWT-Manipulation, Rechteeskalation).
+- **Manuelle Tests**: Explorative Tests durch Fachanwender, Regressionstests vor Release, Checklisten für Mandantenwechsel.
+- **Backup- und Restore-Tests**: Monatliche Restore-Übungen auf separatem System, Validierung der Datenkonsistenz und Zugriffstrennung.
+
+## ⚠️ Offene Risiken
+
+- **Datenbank-Migration**: Wechsel von SQLite zu PostgreSQL ist notwendig für echte Mandantenfähigkeit; Risiko durch Migrationskomplexität.
+- **Rechteverwaltung**: Rollenkonzept muss sauber implementiert werden, sonst drohen Rechte-Eskalationen.
+- **Performance**: Mandantenfilter können Abfragen verlangsamen; Indizes und Query-Optimierung sind einzuplanen.
+- **Organisatorische Adoption**: Schulungsaufwand für Nutzer, besonders bei mehrstufiger Authentifizierung.
 
 1. **Zeiterfassung-Validierung** (1 Tag)
 2. **Bessere Fehlermeldungen** (1 Tag)  

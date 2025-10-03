@@ -75,6 +75,20 @@ Die API ist dann unter `http://localhost:8000` erreichbar.
 
 Die SQLite-Datenbank wird automatisch als `database.db` im Backend-Verzeichnis erstellt. Die Tabellen werden beim ersten Start der Anwendung automatisch angelegt.
 
+## Sicherheits- und Mandantenkonzept
+
+- **Mandantenfähigkeit**: Jeder Mandant erhält einen eindeutig identifizierbaren `tenant_id`-Kontext, der in allen Datenbanktabellen als Pflichtfeld hinterlegt wird. API-Requests tragen den Tenant-Kontext als JWT-Claim, wodurch ausschließlich mandantenbezogene Datensätze geladen werden.
+- **Mandantentrennung**: Auf Datenbankebene werden `ROW LEVEL SECURITY`-Policies vorbereitet (für SQLite über Query-Filter, bei einem späteren Wechsel zu PostgreSQL über native RLS). Zusätzlich werden sensible Assets (Dateiuploads, Reports) in tenant-spezifischen Verzeichnissen abgelegt.
+- **Authentifizierung & Autorisierung**: Der Login erfolgt über OAuth2 Password Flow mit JWT-Tokens. Rollen (`admin`, `project_manager`, `employee`, `accounting`) steuern die Berechtigungen innerhalb eines Mandanten. Sicherheitskritische Aktionen (z. B. Export, Löschung) erfordern „step-up“-Authentifizierung über Einmalpasswörter.
+- **Sicherheitsmaßnahmen**: Passwörter werden mit `bcrypt` gehasht, alle externen Verbindungen laufen über HTTPS, Rate-Limits schützen Login-Endpoints, und Audit-Logs erfassen sicherheitsrelevante Ereignisse pro Mandant.
+
+## Release- und Betriebsanforderungen
+
+- **Konfigurationsverwaltung**: Sensible Einstellungen (z. B. Secrets, SMTP-Zugangsdaten) werden ausschließlich über Environment-Variablen oder ein Secrets-Management-System gepflegt.
+- **Logging & Monitoring**: Zentrales strukturiertes Logging (JSON) mit Rotation sowie Mandantenkennzeichnung. Basis-Metriken (Latenz, Fehlerraten) werden in Prometheus/Grafana überwacht.
+- **Backup-Strategie**: Tägliche Datenbank-Backups inkl. Datei-Uploads, verschlüsselt gespeichert und automatisiert auf Wiederherstellbarkeit getestet.
+- **Deployment-Pipeline**: CI/CD-Pipeline (z. B. GitHub Actions) führt automatisierte Tests, statische Analysen und Sicherheits-Scans aus, bevor ein Deployment in die Staging- bzw. Produktionsumgebung erfolgt.
+
 ## Projektstruktur
 
 ```
