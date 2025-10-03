@@ -5,6 +5,10 @@ async function initializeApp() {
         return;
     }
 
+    await hydrateThemeFromServer();
+    if (!authToken) {
+        return;
+    }
     await loadUserData();
 
     const section = window.location.hash.replace('#', '') || 'dashboard';
@@ -522,6 +526,7 @@ if (typeof localStorage !== 'undefined') {
 
 // API Base URL
 const API_BASE = window.location.origin.replace(/\/$/, '');
+const USER_SETTINGS_ENDPOINT = `${API_BASE}/user/settings`;
 
 async function createAutoOffer(projectId) {
     if (!authToken) {
@@ -597,7 +602,7 @@ function getStatusText(status) {
 
 // Initialisierung beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
-    loadDarkModePreference();
+    initializeTheme();
 
     document.querySelectorAll('#mainNavigation [data-section]').forEach(link => {
         link.addEventListener('click', async (event) => {
@@ -792,6 +797,11 @@ function hasAccessToSection(sectionName) {
 
 // Benutzerdaten laden
 async function loadUserData() {
+    if (!authToken) {
+        showLoginPrompt();
+        return;
+    }
+
     try {
         console.log('Lade Benutzerdaten mit Token:', authToken ? 'Token vorhanden' : 'Kein Token');
 
@@ -4152,39 +4162,244 @@ document.addEventListener('touchmove', function(e) {
 });
 
 // Dark Mode Funktionen
-function loadDarkModePreference() {
-    const savedMode = localStorage.getItem('darkMode');
-    if (savedMode === 'true') {
-        isDarkMode = true;
-        document.body.classList.add('dark-mode');
-        updateDarkModeToggle();
+const DARK_MODE_FLAG_KEY = 'darkMode';
+const LEGACY_THEME_KEY = 'theme';
+const DARK_MODE_CLASS_NAME = 'dark-mode';
+const DARK_THEME_VALUE = 'dark';
+const LIGHT_THEME_VALUE = 'light';
+const BOOTSTRAP_THEME_ATTRIBUTE = 'data-bs-theme';
+let systemThemeListenerRegistered = false;
+let serverThemePreference = null;
+
+/**
+ * Liefert das gespeicherte Theme oder {@code null}, wenn keine Einstellung existiert.
+ */
+function getStoredThemePreference() {
+    try {
+        const storedFlag = localStorage.getItem(DARK_MODE_FLAG_KEY);
+        if (storedFlag === 'true') {
+            return DARK_THEME_VALUE;
+        }
+        if (storedFlag === 'false') {
+            return LIGHT_THEME_VALUE;
+        }
+
+        const legacyTheme = localStorage.getItem(LEGACY_THEME_KEY);
+        if (legacyTheme === DARK_THEME_VALUE || legacyTheme === LIGHT_THEME_VALUE) {
+            return legacyTheme;
+        }
+    } catch (error) {
+        console.warn('Konnte gespeicherte Theme-Einstellung nicht lesen:', error);
+    }
+
+    return null;
+}
+
+/**
+ * Persistiert eine Theme-Wahl kompatibel zu alten und neuen lokalen Storage-Keys.
+ */
+function persistThemePreference(theme) {
+    const isDarkTheme = theme === DARK_THEME_VALUE;
+
+    try {
+        localStorage.setItem(DARK_MODE_FLAG_KEY, isDarkTheme ? 'true' : 'false');
+        localStorage.setItem(LEGACY_THEME_KEY, theme);
+    } catch (error) {
+        console.warn('Konnte Theme-Einstellung nicht speichern:', error);
+    }
+}
+
+/**
+ * Überträgt die Theme-Präferenz an das Backend, sofern ein Token vorhanden ist.
+ */
+async function persistThemePreferenceToServer(theme) {
+    if (!authToken) {
+        return false;
+    }
+
+    if (theme !== DARK_THEME_VALUE && theme !== LIGHT_THEME_VALUE) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(USER_SETTINGS_ENDPOINT, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ theme_preference: theme })
+        });
+
+        if (!response.ok) {
+            console.warn('Server konnte Theme-Präferenz nicht speichern:', response.status);
+            return false;
+        }
+
+        serverThemePreference = theme;
+        return true;
+    } catch (error) {
+        console.warn('Konnte Theme-Präferenz nicht zum Server synchronisieren:', error);
+        return false;
+    }
+}
+
+/**
+ * Holt die gespeicherte Theme-Präferenz vom Backend.
+ */
+async function fetchThemePreferenceFromServer() {
+    if (!authToken) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(USER_SETTINGS_ENDPOINT, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.status === 401) {
+            console.warn('Nicht autorisiert beim Laden der Theme-Präferenz.');
+            authToken = null;
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user_role');
+            showLoginPrompt();
+            return null;
+        }
+
+        if (!response.ok) {
+            console.warn('Konnte Theme-Präferenz nicht laden:', response.status);
+            return null;
+        }
+
+        const payload = await response.json();
+        const serverTheme = payload?.theme_preference || null;
+        if (serverTheme === DARK_THEME_VALUE || serverTheme === LIGHT_THEME_VALUE) {
+            serverThemePreference = serverTheme;
+            return serverTheme;
+        }
+
+        return null;
+    } catch (error) {
+        console.warn('Fehler beim Laden der Theme-Präferenz vom Server:', error);
+        return null;
+    }
+}
+
+/**
+ * Wendet das gewünschte Theme auf DOM, UI-Controls und gespeicherte Werte an.
+ */
+function applyTheme(theme, { persistPreference = true, syncServer = false } = {}) {
+    isDarkMode = theme === DARK_THEME_VALUE;
+
+    if (document.body) {
+        document.body.classList.toggle(DARK_MODE_CLASS_NAME, isDarkMode);
+    }
+
+    if (document.documentElement) {
+        document.documentElement.setAttribute(BOOTSTRAP_THEME_ATTRIBUTE, isDarkMode ? 'dark' : 'light');
+    }
+
+    if (persistPreference) {
+        persistThemePreference(theme);
+    }
+
+    if (syncServer) {
+        persistThemePreferenceToServer(theme);
+    }
+
+    updateDarkModeToggle();
+    updateProjectNamesColor();
+}
+
+/**
+ * Reagiert auf System-Theme-Änderungen solange der Nutzer keine eigene Wahl getroffen hat.
+ */
+function handleSystemThemeChange(mediaQueryList) {
+    const storedTheme = getStoredThemePreference();
+    if (storedTheme) {
+        return; // Benutzerpräferenz überschreibt System-Einstellung.
+    }
+
+    const nextTheme = mediaQueryList.matches ? DARK_THEME_VALUE : LIGHT_THEME_VALUE;
+    applyTheme(nextTheme, { persistPreference: false });
+}
+
+/**
+ * Aktiviert Listener für System-Theme-Änderungen (Prefers-Color-Scheme).
+ */
+function registerSystemThemeListener() {
+    if (systemThemeListenerRegistered || !window.matchMedia) {
+        return;
+    }
+
+    const mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
+
+    if (typeof mediaQueryList.addEventListener === 'function') {
+        mediaQueryList.addEventListener('change', handleSystemThemeChange);
+    } else if (typeof mediaQueryList.addListener === 'function') {
+        mediaQueryList.addListener(handleSystemThemeChange);
+    }
+
+    systemThemeListenerRegistered = true;
+}
+
+/**
+ * Initialisiert den Dark-/Light-Mode anhand gespeicherter Werte oder Systempräferenz.
+ */
+function initializeTheme() {
+    const storedTheme = getStoredThemePreference();
+    if (storedTheme) {
+        applyTheme(storedTheme, { persistPreference: true });
+    } else {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(prefersDark ? DARK_THEME_VALUE : LIGHT_THEME_VALUE, { persistPreference: false });
+    }
+
+    registerSystemThemeListener();
+}
+
+/**
+ * Synchronisiert die Theme-Präferenz mit dem Backend und berücksichtigt lokale Fallbacks.
+ */
+async function hydrateThemeFromServer() {
+    if (!authToken) {
+        return;
+    }
+
+    const localTheme = getStoredThemePreference();
+    const serverTheme = await fetchThemePreferenceFromServer();
+
+    if (serverTheme && serverTheme !== (isDarkMode ? DARK_THEME_VALUE : LIGHT_THEME_VALUE)) {
+        applyTheme(serverTheme, { persistPreference: true, syncServer: false });
+        return;
+    }
+
+    if (!serverTheme && localTheme) {
+        await persistThemePreferenceToServer(localTheme);
     }
 }
 
 function toggleDarkMode() {
-    isDarkMode = !isDarkMode;
-    
-    if (isDarkMode) {
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('darkMode', 'true');
-    } else {
-        document.body.classList.remove('dark-mode');
-        localStorage.setItem('darkMode', 'false');
-    }
-    
-    updateDarkModeToggle();
-    
-    // Update project names color when toggling dark mode
-    updateProjectNamesColor();
-    
+    const nextTheme = isDarkMode ? LIGHT_THEME_VALUE : DARK_THEME_VALUE;
+    applyTheme(nextTheme, { persistPreference: true, syncServer: true });
+
     // Force reload dashboard data to update project names
     loadDashboardData();
+}
+
+function toggleTheme() {
+    /**
+     * Legacy wrapper to keep the existing HTML `onclick="toggleTheme()"` attribute functional.
+     */
+    toggleDarkMode();
 }
 
 function updateProjectNamesColor() {
     const projectNames = document.querySelectorAll('.project-name');
     projectNames.forEach(name => {
-        if (document.body.classList.contains('dark-mode')) {
+        if (isDarkMode) {
             name.style.setProperty('color', '#FFFFFF', 'important');
             name.style.setProperty('font-weight', '700', 'important');
         } else {
@@ -4198,16 +4413,14 @@ function updateProjectNamesColor() {
 setInterval(() => {
     const projectNames = document.querySelectorAll('.project-name');
     projectNames.forEach(name => {
-        if (document.body.classList.contains('dark-mode')) {
+        if (isDarkMode) {
             if (name.style.color !== 'rgb(255, 255, 255)') {
                 name.style.setProperty('color', '#FFFFFF', 'important');
                 name.style.setProperty('font-weight', '700', 'important');
             }
-        } else {
-            if (name.style.color !== 'rgb(55, 65, 81)') {
-                name.style.setProperty('color', '#374151', 'important');
-                name.style.setProperty('font-weight', '500', 'important');
-            }
+        } else if (name.style.color !== 'rgb(55, 65, 81)') {
+            name.style.setProperty('color', '#374151', 'important');
+            name.style.setProperty('font-weight', '500', 'important');
         }
     });
 }, 2000);
@@ -4594,13 +4807,13 @@ function showAlert(message, type = 'info') {
 function updateDarkModeToggle() {
     const icon = document.getElementById('darkModeIcon');
     const text = document.getElementById('darkModeText');
-    
-    if (isDarkMode) {
-        icon.className = 'fas fa-sun';
-        text.textContent = 'Light Mode';
-    } else {
-        icon.className = 'fas fa-moon';
-        text.textContent = 'Dark Mode';
+
+    if (icon) {
+        icon.className = isDarkMode ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    if (text) {
+        text.textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
     }
 }
 
@@ -5341,7 +5554,7 @@ let logoManagementModalInstance = null;
 
 // Initialisierung beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
-    loadDarkModePreference();
+    initializeTheme();
 
     document.querySelectorAll('#mainNavigation [data-section]').forEach(link => {
         link.addEventListener('click', async (event) => {

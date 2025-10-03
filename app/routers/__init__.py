@@ -12,6 +12,7 @@ from . import (
     project_images,
     projects,
     reports,
+    user_settings,
     time_entries,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "project_images",
     "projects",
     "reports",
+    "user_settings",
     "time_entries",
 ]

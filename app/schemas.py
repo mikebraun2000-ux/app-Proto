@@ -203,6 +203,30 @@ class TenantSettingsResponse(TenantSettingsBase):
     class Config:
         from_attributes = True
 
+
+class UserSettingsBase(BaseModel):
+    """Gemeinsame Felder für Benutzer-Einstellungen."""
+
+    theme_preference: Optional[str] = None
+
+
+class UserSettingsUpdate(UserSettingsBase):
+    """Schema für Aktualisierung der Benutzer-Einstellungen."""
+
+    pass
+
+
+class UserSettingsResponse(UserSettingsBase):
+    """Antwort-Schema für Benutzer-Einstellungen."""
+
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # Offer Schemas
 class OfferItem(BaseModel):
     """Schema für Angebotspositionen."""

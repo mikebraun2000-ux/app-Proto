@@ -76,6 +76,26 @@ class TenantSettings(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Letzte Aktualisierung")
 
 
+class UserSettings(SQLModel, table=True):
+    """Individuelle Einstellungen für Benutzer (z. B. Theme)."""
+
+    __tablename__ = "user_settings"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(
+        foreign_key="user.id",
+        index=True,
+        unique=True,
+        description="Zugehöriger Benutzer"
+    )
+    theme_preference: Optional[str] = Field(
+        default=None,
+        max_length=20,
+        description="Bevorzugtes Theme (dark/light)"
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Erstellungszeitpunkt")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Letzte Aktualisierung")
+
+
 class ReportStatus(str, Enum):
     """Berichtsstatus-Kategorien."""
     BERICHT = "BERICHT"
